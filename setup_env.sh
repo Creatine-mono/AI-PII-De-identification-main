@@ -17,16 +17,18 @@ export SAVE_DIR="$(pwd)/results"
 
 # WandB 관련 (선택사항)
 export WANDB_DIR="$(pwd)/wandb"
-# export wandb_api_key="your_wandb_api_key_here"  # 필요시 주석 해제 후 키 입력
+# export wandb_api_key="e5e1e1bc225ee85982c51523f92208d86953a7bd"  # 필요시 주석 해제 후 키 입력
 
 # 디렉터리 생성
 echo "필요한 디렉터리들을 생성합니다..."
 mkdir -p "$DATA_DIR"
 mkdir -p "$GEN_DIR"
+mkdir -p "$GEN_DIR/placeholder" 
 mkdir -p "$MODEL_DIR"
 mkdir -p "$LLM_MODELS"
 mkdir -p "$SAVE_DIR"
 mkdir -p "$WANDB_DIR"
+
 
 echo ""
 echo "환경 변수 설정 완료:"
@@ -63,3 +65,4 @@ export CUDA_VISIBLE_DEVICES=0
 
 echo "Setup complete. 가상환경 활성화 및 CUDA 지원 PyTorch 설치 완료."
 echo "현재 CUDA 사용 가능 여부: $(python -c 'import torch; print(torch.cuda.is_available())')"
+
