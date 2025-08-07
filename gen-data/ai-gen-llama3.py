@@ -50,10 +50,8 @@ def clear_memory():
 def load_model(model_path: str, *, quantize: bool = False):
     model_pipeline = transformers.pipeline(
         "text-generation",
-        model=model_path,
-        model_kwargs={"torch_dtype": torch.bfloat16, "load_in_8bit": True},
-        device_map="auto",
-    )
+        model_kwargs={"torch_dtype": torch.bfloat16},
+        device="cuda",)
     return model_pipeline
 
 
