@@ -17,7 +17,7 @@ export SAVE_DIR="$(pwd)/results"
 
 # WandB 관련 (선택사항)
 export WANDB_DIR="$(pwd)/wandb"
-# export wandb_api_key="e5e1e1bc225ee85982c51523f92208d86953a7bd"  # 필요시 주석 해제 후 키 입력
+export wandb_api_key="e5e1e1bc225ee85982c51523f92208d86953a7bd" 
 
 # 디렉터리 생성
 echo "필요한 디렉터리들을 생성합니다..."
