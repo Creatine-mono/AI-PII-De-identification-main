@@ -129,8 +129,6 @@ if __name__ == '__main__':
         args = argparse.Namespace()
         args.dir = os.getenv('BASE_DIR') + '/cfgs/single-gpu'
         args.name = 'cfg1.yaml'
-        args.huggingface_model_id = "my-awesome-model"
-        args.huggingface_user = "my-user-name"
     else:
         arg_desc = '''This program points to input parameters for model training'''
         parser = argparse.ArgumentParser(
@@ -144,8 +142,6 @@ if __name__ == '__main__':
                             "--name",
                             required=True,
                             help="File name of YAML config. file")
-        parser.add_argument("--huggingface_model_id", type=str, help="Hugging Face model ID", required=True)
-        parser.add_argument("--huggingface_user", type=str, help="Hugging Face user name", required=True)
         args = parser.parse_args()
         print(args)
 
@@ -363,14 +359,6 @@ if __name__ == '__main__':
             compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
         )
     trainer.train()
-
-    # Push to hub
-    if not is_debugger and args.huggingface_model_id and args.huggingface_user:
-        try:
-            trainer.push_to_hub(f"{args.huggingface_user}/{args.huggingface_model_id}")
-            print(f"Successfully pushed to Hugging Face Hub: {args.huggingface_user}/{args.huggingface_model_id}")
-        except Exception as e:
-            print(f"Failed to push to Hugging Face Hub: {e}")
 
     ############################################
     # F5 Score on Validation Dataset

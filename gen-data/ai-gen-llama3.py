@@ -50,6 +50,7 @@ def clear_memory():
 def load_model(model_path: str, *, quantize: bool = False):
     model_pipeline = transformers.pipeline(
         "text-generation",
+        model=model_path,
         model_kwargs={"torch_dtype": torch.bfloat16},
         device="cuda",)
     return model_pipeline
@@ -152,8 +153,6 @@ if __name__ == '__main__':
     seed_everything(seed=CFG.seed)
 
     # Path to save generated csv
-    save_dir = Path(CFG.gen_dir) / 'placeholder'
-    save_dir.mkdir(parents=True, exist_ok=True)
     save_gen_filename = (f'gen_{CFG.prompt_folder}_{CFG.model}_'
                          f'N{CFG.generate_text.N}_{CFG.filename}.csv')
 
@@ -284,6 +283,6 @@ if __name__ == '__main__':
     model = load_model(model_path=MODEL_PATH)
     generate_texts(pipeline=model,
                    generated_df=df,
-                   path_save=str(save_dir / save_gen_filename))
+                   path_save=str(Path(CFG.gen_dir) / 'placeholder' / save_gen_filename))
 
     print('End of Script - Complete')
