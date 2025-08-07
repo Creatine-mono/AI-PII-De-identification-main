@@ -40,6 +40,28 @@ echo SAVE_DIR: %SAVE_DIR%
 echo WANDB_DIR: %WANDB_DIR%
 echo.
 echo 디렉터리 생성 완료!
+echo.
+
+REM 1. 가상환경 생성 및 활성화 (존재하면 재활성화)
+if not exist "%BASE_DIR%pii-env" (
+    python -m venv "%BASE_DIR%pii-env"
+)
+call "%BASE_DIR%pii-env\Scripts\activate.bat"
+
+REM 2. pip 최신화
+pip install --upgrade pip
+
+REM 3. CUDA 12.1 지원 PyTorch 설치
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+
+REM 4. requirements.txt에 있는 필수 패키지 설치
+pip install -r requirements.txt
+
+echo.
+echo Setup complete. 가상환경 활성화 및 CUDA 지원 PyTorch 설치 완료.
+echo 현재 CUDA 사용 가능 여부:
+python -c "import torch; print(torch.cuda.is_available())"
+echo.
 echo 이제 Python 스크립트들을 실행할 수 있습니다.
 echo.
 pause

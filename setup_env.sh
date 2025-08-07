@@ -53,7 +53,7 @@ source pii-env/bin/activate
 pip install --upgrade pip
 
 # 3. CUDA 12.1 지원 PyTorch 설치
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
 
 # 4. 필수 패키지 설치
 pip install transformers pandas tqdm numpy faker
