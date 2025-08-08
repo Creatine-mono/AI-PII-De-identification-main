@@ -804,3 +804,34 @@ FIRSTNAME_REAL, LASTNAME_REAL = zip(*random.sample(
 FIRSTNAME_REAL = [i.replace('-', ' ') for i in list(FIRSTNAME_REAL)]
 LASTNAME_REAL = [i.replace('-', ' ') for i in list(LASTNAME_REAL)]
 
+    del dfgn, dfsn
+    _ = gc.collect()
+    print(f'# of Real First Names: {len(FIRSTNAME_REAL):,}')
+    print(f'# of Real Last Names: {len(LASTNAME_REAL):,}')
+
+    # Load top email domains
+    with open('./gen-data/top-domains.txt', 'r') as file:
+        # Read the entire file content
+        EMAIL_DOMAINS = file.read()
+    EMAIL_DOMAINS = EMAIL_DOMAINS.split('\n')
+
+    # Create Syn. PII Data
+    TOTAL = 4000  # Generate 10,000
+    students = []
+    for i in tqdm(range(TOTAL)):
+        students.append(generate_student_info())
+
+    # Store results in dataframe
+    df = pd.DataFrame(students)
+
+    # Reset index
+    df = df.reset_index(drop=True)
+    # Save to the csv file
+    df.to_csv(
+        Path(
+            CFG.gen_dir) /
+        f"pii_syn_data.csv",
+        index=False,
+        encoding='UTF-8')
+    print(f'{Path(CFG.gen_dir) /f"pii_syn_data.csv"}')
+    print('End of Script - Complete')
