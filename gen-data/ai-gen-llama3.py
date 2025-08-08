@@ -48,11 +48,27 @@ def clear_memory():
 
 
 def load_model(model_path: str, *, quantize: bool = False):
-    model_pipeline = transformers.pipeline(
-        "text-generation",
-        model=model_path,
-        model_kwargs={"torch_dtype": torch.bfloat16},
-        device="cuda",)
+    if quantize:
+        model = transformers.AutoModelForCausalLM.from_pretrained(
+            model_path,
+            device_map="auto",
+            load_in_8bit=True,
+            torch_dtype=torch.float16,
+        )
+        tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
+        pipe = transformers.pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+            device=0
+        )
+    else:
+        pipe = transformers.pipeline(
+            "text-generation",
+            model=model_path,
+            model_kwargs={"torch_dtype": torch.bfloat16},
+            device="cuda",
+        )
     return model_pipeline
 
 
