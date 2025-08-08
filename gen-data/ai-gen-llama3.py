@@ -207,7 +207,7 @@ def generate_texts(pipeline, generated_df, path_save, batch_size=8):
     # 최종 저장
     generated_df.to_csv(path_save, index=False, encoding="UTF-8")
     print(f'Saved at: {path_save}')
-)
+
 
 label_types = ['NAME', 'EMAIL', 'USERNAME', 'ID_NUM',
                'PHONE_NUM', 'URL_PERSONAL', 'STREET_ADDRESS']
