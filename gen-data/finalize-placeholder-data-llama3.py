@@ -148,6 +148,8 @@ if __name__ == '__main__':
     print(f'df_final.shape: {df_final.shape}')
 
     # Save to disk
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     df_final.to_json(save_path)
     print(f'Saved at:\n{save_path}')
-print('End of Script - Completed')
+
+    print('End of Script - Completed')
