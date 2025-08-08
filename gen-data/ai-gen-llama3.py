@@ -384,7 +384,7 @@ if __name__ == '__main__':
     df['model'] = CFG.model
     
 # 저장 파일 경로 지정 (파일명 포함)
-save_gen_filename = "/output.csv"  
+save_gen_filename = "placeholder/output.csv"  
 # 전체 저장 경로 구성
 full_save_path = Path(CFG.gen_dir) / 'placeholder' / save_gen_filename
 
