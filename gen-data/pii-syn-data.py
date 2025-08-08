@@ -618,22 +618,19 @@ def generate_email(first_name, last_name, faker, algo):
 
 
 def get_name():
-    # Select the student country to generate the user info based on the country
-    COUNTRIES = ["ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
-                 "ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
-                 "ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
-                 "ko_KR", "ko_KR", "ko_KR"]
-    faker = Faker(random.choice(COUNTRIES))
-    if random.randint(0, 100) >= 80:
-        idx_first = random.randint(0, len(FIRSTNAME_REAL) - 1)
-        first_name = FIRSTNAME_REAL[idx_first]
-        FIRSTNAME_REAL.pop(idx_first)
+    global FIRSTNAME_REAL, LASTNAME_REAL
+    use_real = (
+        len(FIRSTNAME_REAL) > 0 and 
+        len(LASTNAME_REAL) > 0 and 
+        random.random() < 0.8  # 80% 확률로 진짜 이름 사용
+    )
 
-        idx_last = random.randint(0, len(LASTNAME_REAL) - 1)
-        last_name = LASTNAME_REAL[idx_last]
-        LASTNAME_REAL.pop(idx_last)
+    if use_real:
+        first_name = random.choice(FIRSTNAME_REAL)
+        last_name = random.choice(LASTNAME_REAL)
         # real = True
     else:
+        # Faker 조합 이름 사용 (20%)
         if random.random() >= 0.25:
             first_name = faker.first_name()
             last_name = faker.last_name()
@@ -641,20 +638,13 @@ def get_name():
             first_name = faker.first_name() + ' ' + faker.last_name()
             last_name = faker.last_name()
 
-    # Remove special characters
+    # 특수 문자 제거 및 ASCII 정규화
     first_name = first_name.replace('-', ' ')
     last_name = last_name.replace('-', ' ')
-
-    # Normalize unicode characters
-    first_name = unicodedata.normalize(
-        'NFKD', first_name).encode(
-        'ascii', 'ignore').decode('utf-8')
-    last_name = unicodedata.normalize(
-        'NFKD', last_name).encode(
-        'ascii', 'ignore').decode('utf-8')
+    first_name = unicodedata.normalize('NFKD', first_name).encode('ascii', 'ignore').decode('utf-8')
+    last_name = unicodedata.normalize('NFKD', last_name).encode('ascii', 'ignore').decode('utf-8')
 
     return first_name, last_name, faker
-
 
 def generate_student_info():
     """Generates all the user info (name, eamil addresses, phone number, etc) together """
