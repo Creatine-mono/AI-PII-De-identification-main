@@ -616,7 +616,7 @@ def generate_email(first_name, last_name, faker, algo):
 
     return email
 
-
+faker = Faker()
 def get_name():
     global FIRSTNAME_REAL, LASTNAME_REAL, faker
     use_real = (
