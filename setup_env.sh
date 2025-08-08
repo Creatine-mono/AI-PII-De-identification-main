@@ -62,6 +62,7 @@ pip install transformers pandas tqdm numpy faker
 
 # 5. 양자화 패키지 설치
 pip install accelerate
+pip install -U bitsandbytes
 
 # 5. 환경 변수 설정
 export CUDA_VISIBLE_DEVICES=0
