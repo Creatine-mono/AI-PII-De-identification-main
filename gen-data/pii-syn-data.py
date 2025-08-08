@@ -763,7 +763,7 @@ if __name__ == '__main__':
     df_train = pd.read_json(
         Path(
             CFG.gen_dir) /
-        'pii-detection-removal-from-educational-data/train.json')
+        'gen_placeholder_Bllossom/train.json')
     df_train = df_train.explode(
         ['tokens', 'trailing_whitespace', 'labels']).reset_index(drop=True)
 
