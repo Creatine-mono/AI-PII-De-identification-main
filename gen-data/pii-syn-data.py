@@ -805,7 +805,7 @@ FIRSTNAME_REAL = [i.replace('-', ' ') for i in list(FIRSTNAME_REAL)]
 LASTNAME_REAL = [i.replace('-', ' ') for i in list(LASTNAME_REAL)]
 
 del dfgn, dfsn
- = gc.collect()
+_ = gc.collect()
 print(f'# of Real First Names: {len(FIRSTNAME_REAL):,}')
 print(f'# of Real Last Names: {len(LASTNAME_REAL):,}')
 
