@@ -279,10 +279,15 @@ if __name__ == '__main__':
     # Model used to gen. text
     df['model'] = CFG.model
 
-    # Generate the text
-    model = load_model(model_path=MODEL_PATH)
-    generate_texts(pipeline=model,
-                   generated_df=df,
-                   path_save=str(Path(CFG.gen_dir) / 'placeholder' / save_gen_filename))
+# Generate the text
+model = load_model(model_path=MODEL_PATH)
 
+# 디렉토리 생성 로직 추가
+dir_path = Path(CFG.gen_dir) / 'placeholder'
+dir_path.mkdir(parents=True, exist_ok=True)
+
+# 텍스트 생성
+generate_texts(pipeline=model,
+               generated_df=df,
+               path_save=str(dir_path / save_gen_filename))
     print('End of Script - Complete')
