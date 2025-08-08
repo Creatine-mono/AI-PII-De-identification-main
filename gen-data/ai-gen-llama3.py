@@ -282,12 +282,13 @@ if __name__ == '__main__':
 # Generate the text
 model = load_model(model_path=MODEL_PATH)
 
-# 디렉토리 생성 로직 추가
 dir_path = Path(CFG.gen_dir) / 'placeholder'
+
+# 디렉토리 없으면 생성
 dir_path.mkdir(parents=True, exist_ok=True)
 
-# 텍스트 생성
+# 모델 로딩 및 텍스트 생성
+model = load_model(model_path=MODEL_PATH)
 generate_texts(pipeline=model,
                generated_df=df,
                path_save=str(dir_path / save_gen_filename))
-    print('End of Script - Complete')
