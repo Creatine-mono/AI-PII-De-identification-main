@@ -278,17 +278,20 @@ if __name__ == '__main__':
 
     # Model used to gen. text
     df['model'] = CFG.model
+    
+# 저장 파일 경로 지정 (파일명 포함)
+save_gen_filename = "gen_placeholder_Bllossom/output.csv"  # 필요에 따라 파일명 변경 가능
 
-# Generate the text
+# 전체 저장 경로 구성
+full_save_path = Path(CFG.gen_dir) / 'placeholder' / save_gen_filename
+
+# 필요한 상위 디렉토리까지 전부 생성
+full_save_path.parent.mkdir(parents=True, exist_ok=True)
+
+# 모델 로딩 (중복 제거)
 model = load_model(model_path=MODEL_PATH)
 
-dir_path = Path(CFG.gen_dir) / 'placeholder'
-
-# 디렉토리 없으면 생성
-dir_path.mkdir(parents=True, exist_ok=True)
-
-# 모델 로딩 및 텍스트 생성
-model = load_model(model_path=MODEL_PATH)
+# 텍스트 생성 및 저장
 generate_texts(pipeline=model,
                generated_df=df,
-               path_save=str(dir_path / save_gen_filename))
+               path_save=str(full_save_path))
