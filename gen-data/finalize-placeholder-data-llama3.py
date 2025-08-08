@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # Inputs
     save_path = Path(os.getenv('DATA_DIR')) / \
         'mdd-gen/llama3_placeholder_2.3K_v0.json'
-    pii_data_path = Path(os.getenv('GEN_DIR')) / 'pii_syn_data_v4.csv'
+    pii_data_path = Path(os.getenv('GEN_DIR')) / 'pii_syn_data.csv'
     SPLIT_PERCENT = 1.0
     THRESHOLD = 0.70
     DOC_PREFIX = 'llama3-syn-v0'
