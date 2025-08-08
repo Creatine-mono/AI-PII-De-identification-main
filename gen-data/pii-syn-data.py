@@ -769,7 +769,7 @@ if __name__ == '__main__':
 
     # Load Real Names
     dfgn = pd.read_parquet(Path(CFG.gen_dir) /
-                           'gen_placeholder_Bllossom/given_names_data.parquet')
+                           'placeholder/gen_placeholder_Bllossom/given_names_data.parquet')
     dfgn['is_ascii'] = dfgn.given_name.apply(lambda x: str(x).isascii())
     dfgn['len_gn'] = dfgn.given_name.apply(lambda x: len(str(x)))
     dfgn['num_names'] = dfgn.given_name.apply(lambda x: len(str(x).split(' ')))
@@ -777,7 +777,7 @@ if __name__ == '__main__':
         dfgn['is_ascii']) & (dfgn['num_names'] <= 2)].reset_index(drop=True)
 
     dfsn = pd.read_parquet(Path(CFG.gen_dir) /
-                           'gen_placeholder_Bllossom/surnames_data.parquet')
+                           'placeholder/gen_placeholder_Bllossom/surnames_data.parquet')
     dfsn['is_ascii'] = dfsn.surname.apply(lambda x: str(x).isascii())
     dfsn['len_gn'] = dfsn.surname.apply(lambda x: len(str(x)))
     dfsn['num_names'] = dfsn.surname.apply(
