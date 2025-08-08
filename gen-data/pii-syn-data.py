@@ -768,57 +768,39 @@ if __name__ == '__main__':
         ['tokens', 'trailing_whitespace', 'labels']).reset_index(drop=True)
 
     # Load Real Names
-    dfgn = pd.read_parquet(Path(CFG.gen_dir) /
-                           'placeholder/given_names_data.parquet')
-    dfgn['is_ascii'] = dfgn.given_name.apply(lambda x: str(x).isascii())
-    dfgn['len_gn'] = dfgn.given_name.apply(lambda x: len(str(x)))
-    dfgn['num_names'] = dfgn.given_name.apply(lambda x: len(str(x).split(' ')))
-    dfgn = dfgn[(dfgn['len_gn'] >= dfgn['len_gn'].mean()) & (
-        dfgn['is_ascii']) & (dfgn['num_names'] <= 2)].reset_index(drop=True)
+# 이름/성 데이터 로드
+dfgn = pd.read_parquet(Path(CFG.gen_dir) / 'placeholder/given_names_data.parquet')
+dfsn = pd.read_parquet(Path(CFG.gen_dir) / 'placeholder/surnames_data.parquet')
 
-    dfsn = pd.read_parquet(Path(CFG.gen_dir) /
-                           'placeholder/surnames_data.parquet')
-    dfsn['is_ascii'] = dfsn.surname.apply(lambda x: str(x).isascii())
-    dfsn['len_gn'] = dfsn.surname.apply(lambda x: len(str(x)))
-    dfsn['num_names'] = dfsn.surname.apply(
-        lambda x: len(str(x).split(' ')) == 1)
-    dfsn = dfsn[(dfsn['len_gn'] >= dfsn['len_gn'].mean()) & (
-        dfsn['is_ascii']) & (dfsn['num_names'])].reset_index(drop=True)
+# 1. 이름 컬럼 자동 감지
+possible_given_cols = ['given_name', 'name', '이름']
+gn_col = next((col for col in dfgn.columns if col in possible_given_cols), None)
+if gn_col is None:
+    raise ValueError(f"이름 컬럼 없음: {dfgn.columns.tolist()}")
 
-    # Random combination of given names and surname
-    FIRSTNAME_REAL, LASTNAME_REAL = zip(*random.sample(list(zip(dfgn['given_name'].tolist(),
-                                                                dfsn['surname'].tolist())),
-                                                       50_000))
-    FIRSTNAME_REAL = [i.replace('-', ' ') for i in list(FIRSTNAME_REAL)]
-    LASTNAME_REAL = [i.replace('-', ' ') for i in list(LASTNAME_REAL)]
-    del dfgn, dfsn
-    _ = gc.collect()
-    print(f'# of Real First Names: {len(FIRSTNAME_REAL):,}')
-    print(f'# of Real Last Names: {len(LASTNAME_REAL):,}')
+# 2. 전처리
+dfgn[gn_col] = dfgn[gn_col].fillna("").astype(str)
+dfsn['surname'] = dfsn['surname'].fillna("").astype(str)
 
-    # Load top email domains
-    with open('./gen-data/top-domains.txt', 'r') as file:
-        # Read the entire file content
-        EMAIL_DOMAINS = file.read()
-    EMAIL_DOMAINS = EMAIL_DOMAINS.split('\n')
+# 3. 필터 처리
+dfgn['is_ascii'] = dfgn[gn_col].apply(lambda x: str(x).isascii())
+dfgn['len_gn'] = dfgn[gn_col].apply(lambda x: len(x))
+dfgn['num_names'] = dfgn[gn_col].apply(lambda x: len(x.split(' ')))
+dfgn = dfgn[(dfgn['len_gn'] >= dfgn['len_gn'].mean()) & dfgn['is_ascii'] & (dfgn['num_names'] <= 2)].reset_index(drop=True)
+dfsn = dfsn[dfsn['surname'].str.len() > 0].reset_index(drop=True)
 
-    # Create Syn. PII Data
-    TOTAL = 4000  # Generate 10,000
-    students = []
-    for i in tqdm(range(TOTAL)):
-        students.append(generate_student_info())
+# 4. 샘플 수 계산
+sample_size = min(len(dfgn), len(dfsn), 50_000)
+if sample_size == 0:
+    raise ValueError("사용 가능한 이름/성 데이터가 없습니다.")
 
-    # Store results in dataframe
-    df = pd.DataFrame(students)
+# 5. 샘플 추출
+FIRSTNAME_REAL, LASTNAME_REAL = zip(*random.sample(
+    list(zip(dfgn[gn_col].tolist(), dfsn['surname'].tolist())),
+    sample_size
+))
 
-    # Reset index
-    df = df.reset_index(drop=True)
-    # Save to the csv file
-    df.to_csv(
-        Path(
-            CFG.gen_dir) /
-        f"pii_syn_data.csv",
-        index=False,
-        encoding='UTF-8')
-    print(f'{Path(CFG.gen_dir) /f"pii_syn_data_v4.csv"}')
-    print('End of Script - Complete')
+# 후처리
+FIRSTNAME_REAL = [i.replace('-', ' ') for i in list(FIRSTNAME_REAL)]
+LASTNAME_REAL = [i.replace('-', ' ') for i in list(LASTNAME_REAL)]
+
