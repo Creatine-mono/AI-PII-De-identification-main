@@ -36,9 +36,9 @@ if __name__ == '__main__':
 
     # Load data
     df = pd.concat([
-        pd.read_csv(path_data / 'placeholder/gen_placeholder_Bllossom/output.csv',
+        pd.read_csv(path_data / 'placeholder/output.csv',
                     encoding='UTF-8'),
-        pd.read_csv(path_data / 'placeholder/gen_placeholder_Bllossom/output.csv',
+        pd.read_csv(path_data / 'placeholder/output.csv',
                     encoding='UTF-8'),
     ],
         axis=0)
