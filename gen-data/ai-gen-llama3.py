@@ -69,7 +69,7 @@ def load_model(model_path: str, *, quantize: bool = False):
             model_kwargs={"torch_dtype": torch.bfloat16},
             device="cuda",
         )
-    return model_pipeline
+    return pipe
 
 
 def generate_texts(pipeline, generated_df, path_save):
@@ -305,7 +305,7 @@ full_save_path = Path(CFG.gen_dir) / 'placeholder' / save_gen_filename
 full_save_path.parent.mkdir(parents=True, exist_ok=True)
 
 # 모델 로딩 (중복 제거)
-model = load_model(model_path=MODEL_PATH)
+model = load_model(model_path=MODEL_PATH,  quantize=True)
 
 # 텍스트 생성 및 저장
 generate_texts(pipeline=model,
