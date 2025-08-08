@@ -60,7 +60,6 @@ def load_model(model_path: str, *, quantize: bool = False):
             "text-generation",
             model=model,
             tokenizer=tokenizer,
-            device=0
         )
     else:
         pipe = transformers.pipeline(
