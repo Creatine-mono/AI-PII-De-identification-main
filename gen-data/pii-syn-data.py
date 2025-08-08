@@ -763,7 +763,7 @@ if __name__ == '__main__':
     df_train = pd.read_json(
         Path(
             CFG.gen_dir) /
-        'placeholder/gen_placeholder_Bllossom/train.json')
+        'placeholder/train.json')
     df_train = df_train.explode(
         ['tokens', 'trailing_whitespace', 'labels']).reset_index(drop=True)
 
@@ -777,7 +777,7 @@ if __name__ == '__main__':
         dfgn['is_ascii']) & (dfgn['num_names'] <= 2)].reset_index(drop=True)
 
     dfsn = pd.read_parquet(Path(CFG.gen_dir) /
-                           'placeholder/gen_placeholder_Bllossom/surnames_data.parquet')
+                           'placeholder/surnames_data.parquet')
     dfsn['is_ascii'] = dfsn.surname.apply(lambda x: str(x).isascii())
     dfsn['len_gn'] = dfsn.surname.apply(lambda x: len(str(x)))
     dfsn['num_names'] = dfsn.surname.apply(
