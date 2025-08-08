@@ -60,6 +60,11 @@ pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https
 # 4. 필수 패키지 설치
 pip install transformers pandas tqdm numpy faker
 
+pip install text_unidecode
+
+pip install datasets
+
+pip install spacy
 
 # 5. 환경 변수 설정
 export CUDA_VISIBLE_DEVICES=0
