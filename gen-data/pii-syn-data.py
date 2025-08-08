@@ -618,7 +618,7 @@ def generate_email(first_name, last_name, faker, algo):
 
 
 def get_name():
-    global FIRSTNAME_REAL, LASTNAME_REAL
+    global FIRSTNAME_REAL, LASTNAME_REAL, faker
     use_real = (
         len(FIRSTNAME_REAL) > 0 and 
         len(LASTNAME_REAL) > 0 and 
