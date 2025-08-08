@@ -384,8 +384,7 @@ if __name__ == '__main__':
     df['model'] = CFG.model
     
 # 저장 파일 경로 지정 (파일명 포함)
-save_gen_filename = "gen_placeholder_Bllossom/output.csv"  # 필요에 따라 파일명 변경 가능
-
+save_gen_filename = "/output.csv"  
 # 전체 저장 경로 구성
 full_save_path = Path(CFG.gen_dir) / 'placeholder' / save_gen_filename
 
