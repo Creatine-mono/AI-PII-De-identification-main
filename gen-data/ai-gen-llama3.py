@@ -67,7 +67,6 @@ def load_model(model_path: str, *, quantize: bool = False):
             "text-generation",
             model=model_path,
             model_kwargs={"torch_dtype": torch.bfloat16},
-            device="cuda",
         )
     return pipe
 
