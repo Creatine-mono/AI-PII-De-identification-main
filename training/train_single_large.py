@@ -361,6 +361,8 @@ if __name__ == '__main__':
     
     # 학습
     trainer.train()
+
+    os.environ.pop('TRANSFORMERS_OFFLINE', None)
     
     # 학습 종료 후, 현재 로그인된 psh3333 네임스페이스로 수동 push
     trainer.push_to_hub(
@@ -382,8 +384,6 @@ if __name__ == '__main__':
     # Log F5 score for holdout
     run.log({'best_ckpt': best_ckpt,
              'best_val_metric': best_val_metric})
-    run.log(f5_scores)
-    run.log({'best_f5': best_f5, 'best_threshold': best_threshold})
 
     # Num. steps for best checkpoint
     log_hist = copy.deepcopy(trainer.state.log_history)
@@ -400,11 +400,13 @@ if __name__ == '__main__':
     _ = gc.collect()
 
     # Final wandb log
-    run.log({'optimal_steps_post': optimal_steps,
-             'class_weights_approach': CFG.class_weights.approach,
-             'dataset_name': '; '.join(CFG.paths.data.train),
-             'model_name': CFG.model.name,
-             'max_steps_post': trainer.state.max_steps})
+    run.log({
+        'optimal_steps_post': optimal_steps,
+        'class_weights_approach': getattr(CFG.class_weights, 'approach', 'none'),
+        'dataset_name': jsonl_path,           
+        'model_name': CFG.model.name,
+        'max_steps_post': trainer.state.max_steps
+    })
 
     # Close wandb logger
     wandb.finish()
