@@ -293,7 +293,7 @@ if __name__ == '__main__':
     hf_repo_id = os.getenv("HF_REPO", f"{hf_username}/{default_repo_name}") \
         if hf_username else os.getenv("HF_REPO", default_repo_name)
 
-     if hf_token:
+    if hf_token:
         login(token=hf_token)
 
     try:
