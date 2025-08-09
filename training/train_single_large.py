@@ -277,6 +277,11 @@ if __name__ == '__main__':
         os.environ['WANDB_MODE'] = CFG.wandb.mode
         wandb.login(key=os.getenv('wandb_api_key'))
         run = wandb.init(project='PII')
+        
+    hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")
+    hf_username = os.getenv("psh3333") or "psh243360"  # ← 네 계정으로 고정
+    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
+    hf_repo_id = os.getenv("HF_REPO", f"{hf_username}/{default_repo_name}")
     
     # ===== Hugging Face Hub 설정 =====
     from huggingface_hub import login, create_repo
