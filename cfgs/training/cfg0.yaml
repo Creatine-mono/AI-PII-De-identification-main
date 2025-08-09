@@ -39,7 +39,7 @@ wandb:
 
 # Model and tokenizer
 model:
-  name: deberta-v3-large
+  name: microsoft/deberta-v3-large
   freeze:
     apply: True
     num_layers: 6
