@@ -207,47 +207,11 @@ if __name__ == '__main__':
     # 학습용 JSONL 경로
     jsonl_path = str(Path(os.getenv('DATA_DIR')) / 'mdd-gen/llama3_placeholder_2.3K_v0.jsonl')
     
-    # 로드 후 분할
-    ds_dict = load_dataset("json", data_files={"data": jsonl_path})
-    raw_all = ds_dict["data"]
-    n = len(raw_all)
-    print(f"Loaded {n} examples")
-    
-    if n >= 10:
-        split = raw_all.train_test_split(test_size=0.1, seed=42)
-        raw_train, raw_val = split["train"], split["test"]
-    elif n >= 2:
-        # 검증을 최소 1개 샘플로 확보
-        split = raw_all.train_test_split(test_size=1, seed=42)  # 1샘플을 검증으로
-        raw_train, raw_val = split["train"], split["test"]
-    else:
-        # 샘플이 1개 이하이면 검증은 비우고 학습만
-        raw_train = raw_all
-        raw_val = raw_all.select([])  # empty dataset
-
-    
-    def align_labels_with_tokens(batch):
-        # tokens: list[str], labels: list[str] 와 동일 길이 전제
-        tok = tokenizer(
-            batch["tokens"],
-            is_split_into_words=True,
-            truncation=True,
-            padding=False,
-            add_special_tokens=True,
-        )
-        new_labels = []
-        for i, labs in enumerate(batch["labels"]):
-            word_ids = tok.word_ids(batch_index=i)
-            ids = []
-            for wid in word_ids:
-                if wid is None:
-                    ids.append(-100)  # special tokens는 무시
-                else:
-                    # 라벨 문자열을 정수 id로 매핑, 없으면 'O'
-                    ids.append(label2id.get(labs[wid], label2id['O']))
-            new_labels.append(ids)
-        tok["labels"] = new_labels
-        return tok
+    # split 하지 말고 통째로 train으로 사용
+    ds_dict = load_dataset("json", data_files={"train": jsonl_path})
+    raw_train = ds_dict["train"]
+    raw_val = None  # 평가 안 씀
+    print(f"Loaded {len(raw_train)} examples")
     
     # 모델에不要한 원본 컬럼 제거(남길 컬럼만 유지)
     keep_cols = {"tokens", "labels"}
@@ -257,15 +221,15 @@ if __name__ == '__main__':
     ds_train = raw_train.map(
         align_labels_with_tokens,
         batched=True,
-        remove_columns=cols_remove_train,
+        remove_columns=[c for c in raw_train.column_names if c not in {"tokens", "labels"}],
         desc="Tokenizing train"
     )
-    ds_val = raw_val.map(
-        align_labels_with_tokens,
-        batched=True,
-        remove_columns=cols_remove_val,
-        desc="Tokenizing val"
-    )
+    # 평가 안함
+    ds_val = None
+    
+    if len(ds_train) == 0:
+        raise ValueError("Train dataset is empty after tokenization.")
+        
     # ==== 스텝 계산 (ds_train/ds_val 생성 직후) ====
     train_size = len(ds_train)
     bsz = CFG.train_args.per_device_train_batch_size
@@ -342,33 +306,23 @@ if __name__ == '__main__':
 
     args = TrainingArguments(
         output_dir=str(output_dir),
-    
-        # A40 기본은 fp16; bf16 지원되면 bf16로 전환(동시에 둘 다 True 금지)
-        fp16=not use_bf16,
-        bf16=use_bf16,
-    
         learning_rate=CFG.train_args.learning_rate,
-        num_train_epochs=CFG.train_args.num_train_epochs,
+        num_train_epochs=CFG.train_args.num_train_epochs,  # 과적합 원하면 크게 (예: 50~200)
         per_device_train_batch_size=CFG.train_args.per_device_train_batch_size,
         gradient_accumulation_steps=CFG.train_args.gradient_accumulation_steps,
-        per_device_eval_batch_size=CFG.train_args.per_device_train_batch_size,
     
-        report_to="wandb",
-        eval_strategy="steps",
-        logging_steps=eval_steps,
-        save_steps=eval_steps,
-        save_total_limit=2,
+        # 평가/로그 저장 관련 완전히 끔
+        eval_strategy="no",
+        save_strategy="no",
+        logging_strategy="no",
+        report_to=[],             # wandb도 끄려면 [], 쓰고 계속 쓰고 싶으면 "wandb"
+        load_best_model_at_end=False,
     
-        lr_scheduler_type=CFG.train_args.lr_scheduler_type,
-        metric_for_best_model=CFG.train_args.metric_for_best_model,
-        greater_is_better=CFG.train_args.greater_is_better,
-        warmup_ratio=CFG.train_args.warmup_ratio,
-        weight_decay=CFG.train_args.weight_decay,
-    
-        load_best_model_at_end=True,
-        gradient_checkpointing=CFG.train_args.gradient_checkpointing,
+        weight_decay=0.0,         # 암기 최적화: 정규화 제거
+        warmup_ratio=0.0,         # 웜업 제거
         push_to_hub=False,
     )
+
     class_weights = None
     if CFG.class_weights.apply or CFG.focal_loss.apply:
         trainer = CustomTrainer(
@@ -387,14 +341,14 @@ if __name__ == '__main__':
             model=model,
             args=args,
             train_dataset=ds_train,
-            eval_dataset=ds_val,
             data_collator=collator,
-            tokenizer=tokenizer,  # FutureWarning만 뜸
-            compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
-        )
+            tokenizer=tokenizer, )
     
     # 학습
     trainer.train()
+    
+    model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
 
     os.environ.pop('TRANSFORMERS_OFFLINE', None)
     
