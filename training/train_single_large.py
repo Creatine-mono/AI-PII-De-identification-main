@@ -178,12 +178,16 @@ if __name__ == '__main__':
     id2label = {v: k for k, v in label2id.items()}
     del data
     _ = gc.collect()
-
-    # Tokenizer (허브에서 로드)
+    
     tokenizer = AutoTokenizer.from_pretrained(
-        CFG.model.name,  # 허브 리포 ID (예: "microsoft/deberta-v3-large")
-        # use_fast=CFG.tokenizer.use_fast,
-        # do_lower_case=CFG.tokenizer.do_lower,
+        "microsoft/deberta-v3-large",
+        use_fast=True
+    )
+    model = AutoModelForTokenClassification.from_pretrained(
+        "microsoft/deberta-v3-large",
+        num_labels=len(id2label),
+        id2label=id2label,
+        label2id=label2id
     )
     
     # Add tokens
@@ -230,15 +234,6 @@ if __name__ == '__main__':
     ds_train = ds_train.shuffle(42)
     ds_val = ds_val.shuffle(42)
 
-    # Model (로컬 전용 로드)
-    model = AutoModelForTokenClassification.from_pretrained(
-        str(model_local_dir),
-        local_files_only=True,            # 허브 접근 금지
-        num_labels=len(id2label.values()),
-        id2label=id2label,
-        label2id=label2id,
-        ignore_mismatched_sizes=True,
-    )
     # Resize model token embeddings if tokens were added
     if CFG.tokenizer.add_tokens is not None:
         model.resize_token_embeddings(
