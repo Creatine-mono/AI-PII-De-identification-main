@@ -150,7 +150,10 @@ if __name__ == '__main__':
                    filename=args.name)
     CFG.paths.base_dir = os.getenv('BASE_DIR')
     CFG.paths.data_dir = os.getenv('DATA_DIR')
-
+    CFG.paths.data_dir = "/AI-PII-De-identification-main/data/mdd-gen"
+    CFG.paths.data.train = ["llama3_placeholder_2.3K_v0.json"]
+    CFG.paths.data.val = "llama3_placeholder_2.3K_v0.json"
+    
     # Seed everything
     seed_everything(seed=CFG.seed)
 
