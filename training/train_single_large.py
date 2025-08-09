@@ -216,7 +216,6 @@ if __name__ == '__main__':
     # 모델에不要한 원본 컬럼 제거(남길 컬럼만 유지)
     keep_cols = {"tokens", "labels"}
     cols_remove_train = [c for c in raw_train.column_names if c not in keep_cols]
-    cols_remove_val   = [c for c in raw_val.column_names   if c not in keep_cols]
     
     ds_train = raw_train.map(
         align_labels_with_tokens,
@@ -224,8 +223,6 @@ if __name__ == '__main__':
         remove_columns=[c for c in raw_train.column_names if c not in {"tokens", "labels"}],
         desc="Tokenizing train"
     )
-    # 평가 안함
-    ds_val = None
         
     # ==== 스텝 계산 (ds_train/ds_val 생성 직후) ====
     train_size = len(ds_train)
@@ -253,7 +250,7 @@ if __name__ == '__main__':
 
     
     # 안전 가드
-    if len(ds_train) == 0 or len(ds_val) == 0:
+    if len(ds_train) == 0 
         raise ValueError("Empty train/val dataset after tokenization. Check JSONL path and columns.")
 
     
