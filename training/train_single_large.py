@@ -269,7 +269,7 @@ if __name__ == '__main__':
     eval_steps = int(math.ceil((num_steps / CFG.train_args.num_train_epochs) *
                                CFG.train_args.eval_epoch_fraction))
     print(f'My Calculated eval_steps: {eval_steps:,}')
-
+    
     # Setup WandB
     if CFG.debug:
         os.environ['WANDB_MODE'] = 'disabled'
@@ -279,27 +279,24 @@ if __name__ == '__main__':
         os.environ['WANDB_MODE'] = CFG.wandb.mode
         wandb.login(key=os.getenv('wandb_api_key'))
         run = wandb.init(project='PII')
-            else:
-        os.environ['WANDB_MODE'] = CFG.wandb.mode
-        wandb.login(key=os.getenv('wandb_api_key'))
-        run = wandb.init(project='PII')
-
+    
     # ===== Hugging Face Hub 설정 =====
     from huggingface_hub import login, create_repo
-
+    
     hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")  # 없으면 huggingface-cli login
     hf_username = os.getenv("HF_USERNAME")
     default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
     hf_repo_id = os.getenv("HF_REPO", f"{hf_username}/{default_repo_name}") \
         if hf_username else os.getenv("HF_REPO", default_repo_name)
-
+    
     if hf_token:
         login(token=hf_token)
-
+    
     try:
         create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
     except Exception as e:
         print(f"[HF] create_repo warning: {e}")
+
         
     os.environ.pop('TRANSFORMERS_OFFLINE', None)  # 업로드 위해 오프라인 모드 해제
     tokenizer.save_pretrained(output_dir)
