@@ -289,43 +289,46 @@ if __name__ == '__main__':
         create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
     except Exception as e:
         print(f"[HF] create_repo warning: {e}")
-    # ===== Hugging Face Hub 설정 =====
+    # ===== Hugging Face Hub 설정 & 출력 디렉토리 준비 =====
     from huggingface_hub import login, create_repo
     
-    hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")  # 없으면 huggingface-cli login
-    hf_username = os.getenv("HF_USERNAME")
-    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
-    hf_repo_id = os.getenv("HF_REPO", f"{hf_username}/{default_repo_name}") \
-        if hf_username else os.getenv("HF_REPO", default_repo_name)
+    # 1) 출력 디렉토리 먼저 정의 (여기서부터 output_dir 사용 가능)
+    output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if run.name == 'junk-debug':
+        os.system(f'rm -rf {str(output_dir)}/*')
     
+    # cfg 파일 백업
+    shutil.copyfile(str(Path(args.dir) / args.name), str(output_dir / args.name))
+    
+    # 2) HF 인증/리포지토리 정보
+    hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")             # 필수: write 권한 토큰
+    hf_username = os.getenv("HF_USERNAME")                    # 예: "psh3333"
+    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
+    
+    # HF_REPO가 지정되면 그대로, 아니면 username/repo 형태로
+    if os.getenv("HF_REPO"):
+        hf_repo_id = os.getenv("HF_REPO")
+    elif hf_username:
+        hf_repo_id = f"{hf_username}/{default_repo_name}"
+    else:
+        # username이 없다면 단독 이름으로 생성(개인 네임스페이스)
+        hf_repo_id = default_repo_name
+    
+    # 3) 오프라인 모드 해제 후 로그인 및 리포 생성(이미 있으면 통과)
+    os.environ.pop('TRANSFORMERS_OFFLINE', None)  # 업로드 위해 해제
     if hf_token:
         login(token=hf_token)
-    
     try:
         create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
     except Exception as e:
         print(f"[HF] create_repo warning: {e}")
-
-        
-    os.environ.pop('TRANSFORMERS_OFFLINE', None)  # 업로드 위해 오프라인 모드 해제
+    
+    # 4) 토크나이저를 먼저 로컬 저장(필요시)
     tokenizer.save_pretrained(output_dir)
-    trainer.push_to_hub(commit_message="final model upload")
-    print(f"[HF] Pushed to: https://huggingface.co/{hf_repo_id}")
-
-    # Directory to save results
-    output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
-    if not output_dir.exists():
-        output_dir.mkdir(parents=False, exist_ok=True)
-    if run.name == 'junk-debug':
-        os.system(f'rm -rf {str(output_dir)}/*')
-    shutil.copyfile(str(Path(args.dir) / args.name), str(output_dir / args.name))
-    # Send copy of cfg to output directory
-    shutil.copyfile(str(Path(args.dir) / args.name),
-                    str(output_dir / args.name))
-
-    # Trainer Arguments
-    gradient_checkpointing_kwargs = {
-        'use_reentrant': CFG.train_args.use_reentrant}
+    
+    # 5) TrainingArguments에 Hub 설정을 명확히 기입
+    gradient_checkpointing_kwargs = {'use_reentrant': CFG.train_args.use_reentrant}
     args = TrainingArguments(
         output_dir=str(output_dir),
         fp16=CFG.train_args.fp16,
@@ -347,35 +350,17 @@ if __name__ == '__main__':
         load_best_model_at_end=True,
         gradient_checkpointing=CFG.train_args.gradient_checkpointing,
         gradient_checkpointing_kwargs=gradient_checkpointing_kwargs,
+        # Hub 연동
         push_to_hub=True,
         hub_model_id=hf_repo_id,
         hub_private_repo=True,
-        hub_strategy="every_save",
-        )
-
-    # # Calculate class weights based on your dataset
-    # if CFG.class_weights.apply:
-    #     train_labels = list(chain.from_iterable([i['labels'] for i in ds_train]))
-    #     val_labels = list(chain.from_iterable([i['labels'] for i in ds_val]))
-    #     class_weights = compute_class_weight('balanced',
-    #                                          classes=np.sort(np.unique(train_labels + val_labels)),
-    #                                          y=train_labels + val_labels)
-    #     if CFG.class_weights.approach == 'absolute':
-    #         class_weights = torch.tensor(class_weights).to(torch.float32).to('cuda')
-    #     elif CFG.class_weights.approach == 'mean':
-    #         class_weights[:-1] = np.median(class_weights[:-1]) * CFG.class_weights.multiplier
-    #         class_weights = torch.tensor(class_weights).to(torch.float32).to('cuda')
-    #     elif CFG.class_weights.approach == 'fixed':
-    #         class_weights[:-1] = 19200.0
-    #         # class_weights[12] = 0.07697
-    #         class_weights = torch.tensor(class_weights).to(torch.float32).to('cuda')
-    #     else:
-    #         print('error in class weight')
-    #         sys.exit()
-    # else:
-    #     class_weights = None
-
-    # Initialize Trainer with custom class weights
+        hub_strategy="every_save",  # save_steps마다 자동 push
+    )
+    
+    # 6) class_weights 미정 의도라도 안전하게 초기화 (focal_loss만 켜도 필요)
+    class_weights = None
+    
+    # 7) 트레이너 생성
     if CFG.class_weights.apply or CFG.focal_loss.apply:
         trainer = CustomTrainer(
             model=model,
@@ -398,7 +383,14 @@ if __name__ == '__main__':
             tokenizer=tokenizer,
             compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
         )
+    
+    # 8) 학습 시작 (save_steps마다 HF에 자동 업로드됨)
     trainer.train()
+    
+    # (선택) 마지막 상태를 한 번 더 푸시하고 싶으면:
+    # trainer.push_to_hub(commit_message="final model upload")
+    
+    print(f"[HF] Will push to: https://huggingface.co/{hf_repo_id}")
 
     ############################################
     # F5 Score on Validation Dataset
