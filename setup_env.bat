@@ -57,6 +57,7 @@ pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https
 REM 4. requirements.txt에 있는 필수 패키지 설치
 pip install -r requirements.txt
 
+echo $DATA_DIR
 echo.
 echo Setup complete. 가상환경 활성화 및 CUDA 지원 PyTorch 설치 완료.
 echo 현재 CUDA 사용 가능 여부:
