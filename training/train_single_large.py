@@ -49,6 +49,7 @@ import os
 # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 # os.environ["TORCH_USE_CUDA_DSA"] = "1"
 # os.environ['TOKENIZERS_PARALLELISM'] = 'True'
+os.environ["TRANSFORMERS_NO_TORCHVISION"] = "1"
 os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = 'True'
 
 # Do NOT log models to WandB
