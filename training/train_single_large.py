@@ -250,7 +250,7 @@ if __name__ == '__main__':
 
     
     # 안전 가드
-    if len(ds_train) == 0 
+    if len(ds_train) == 0:
         raise ValueError("Empty train/val dataset after tokenization. Check JSONL path and columns.")
 
     
