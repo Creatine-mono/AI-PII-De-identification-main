@@ -204,11 +204,13 @@ if __name__ == '__main__':
         num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id, use_safetensors=True 
     )
         
-    # 학습용 JSONL 경로 (너 저장한 파일 경로로 맞춤)
+    # 학습용 JSONL 경로
     jsonl_path = str(Path(os.getenv('DATA_DIR')) / 'mdd-gen/llama3_placeholder_2.3K_v0.jsonl')
     
-    # 단일 파일이면 9:1으로 나눠서 train/val 구성
-    raw_all = load_dataset("json", data_files={"all": jsonl_path})["all"]
+    # 로드 후 분할
+    ds_dict = load_dataset("json", data_files={"data": jsonl_path})
+    raw_all = ds_dict["data"]
+    
     split = raw_all.train_test_split(test_size=0.1, seed=42)
     raw_train, raw_val = split["train"], split["test"]
     
