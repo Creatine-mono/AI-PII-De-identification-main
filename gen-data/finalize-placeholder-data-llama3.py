@@ -50,9 +50,13 @@ if __name__ == '__main__':
     df['gen_response'] = df.apply(lambda x: split_model_response(x=x), axis=1)
 
     # Unique pii_placeholders
-    df.rename(columns={'fields_used': 'fields_used_str'}, inplace=True)
-    df['fields_used'] = [i.split(', ') for i in df.fields_used_str.tolist()]
-    pii_placeholders = list(df['fields_used'].explode().unique())
+    df = df.rename(columns={'fields_used': 'fields_used_str'})
+    def _split_fields(v):
+        if pd.isna(v): 
+            return []
+        return [s.strip() for s in str(v).split(',') if s.strip()]
+    df['fields_used'] = df['fields_used_str'].apply(_split_fields)
+    pii_placeholders = list(df['fields_used'].explode().dropna().unique())
 
     # Clean up messy placeholder names between curly braces
     df['full_text'] = df.apply(lambda x: pii_placeholders_cleaned(
@@ -69,6 +73,10 @@ if __name__ == '__main__':
     df = df[df.pii_ratio >= THRESHOLD].reset_index(drop=True)
     print(f'Num. Samples: {len(df):,}')
 
+    # file_name 생성
+    if 'file_name' not in df.columns:
+        df['file_name'] = [f"{DOC_PREFIX}_src_{i}" for i in range(len(df))]
+
     # Spacy tokenizer and trailing whitespaces
     df['tokens'], df['trailing_whitespace'] = zip(
         *df.full_text.apply(tokenize_with_spacy))
@@ -78,7 +86,6 @@ if __name__ == '__main__':
     df_pii.rename(columns={'NAME': 'YOUR_NAME',
                            'ID_NUM': 'IDENTIFICATION_NUM'},
                   inplace=True)
-    df_pii = df_pii[pii_placeholders]
     
     available = [c for c in pii_placeholders if c in df_pii.columns]
     missing   = [c for c in pii_placeholders if c not in df_pii.columns]
@@ -86,17 +93,16 @@ if __name__ == '__main__':
         print(f"[WARN] Missing PII columns: {missing}")
     if not available:
         raise ValueError("No valid PII columns found in df_pii matching placeholders.")
+    
     pii_placeholders = available
     df_pii = df_pii[pii_placeholders].reset_index(drop=True)
-
-    # 2) 전부 문자열화 + 결측치 대체(모델이 문자열 넣는 전제)
     df_pii = df_pii.fillna("").astype(str)
-
-    # 3) 샘플 수 부족 시 안전 접근용 helper (순환 인덱싱)
+    
     def get_pii_row(ii: int):
         if len(df_pii) == 0:
             raise ValueError("df_pii is empty after filtering placeholders.")
         return df_pii.iloc[ii % len(df_pii)]
+
 
     # Insert PII into Full Text
     df_final = None
@@ -172,5 +178,10 @@ if __name__ == '__main__':
         lines=True,
         force_ascii=False
     )
+    import json
+    with open(save_path, encoding='utf-8') as f:
+        for i, line in enumerate(f, 1):
+            json.loads(line)
+    print("JSONL OK:", save_path)
 
     print('End of Script - Completed')
