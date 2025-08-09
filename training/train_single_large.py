@@ -32,8 +32,10 @@ from datasets import Dataset, features, concatenate_datasets
 import wandb
 from scipy.special import softmax
 from sklearn.utils.class_weight import compute_class_weight
+from datasets import load_dataset
 from torch.nn import CrossEntropyLoss
 from tokenizers import AddedToken
+from huggingface_hub import HfApi, create_repo, upload_folder
 import torch.nn as nn
 import torch.nn.functional as F
 from types import SimpleNamespace
@@ -149,21 +151,7 @@ if __name__ == '__main__':
 
     # Load the configuration file
     CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
-
-    from huggingface_hub import HfApi, create_repo  # 반드시 import
-    
-    # Calculate num train steps
-    # ds_train, ds_val 생성 끝난 뒤에:
-    num_steps = int(
-        CFG.train_args.num_train_epochs
-        * len(ds_train)
-        / CFG.train_args.per_device_train_batch_size
-        / CFG.train_args.gradient_accumulation_steps
-    )
-    eval_steps = int(math.ceil(
-        (num_steps / CFG.train_args.num_train_epochs) * CFG.train_args.eval_epoch_fraction
-    ))
-
+    seed_everything(getattr(CFG, "seed", 42))
     
     # Setup WandB (환경변수 키 없이 캐시 로그인)
     try:
@@ -174,10 +162,8 @@ if __name__ == '__main__':
     if CFG.debug:
         run.name = 'junk-debug'
 
-    # ===== Hugging Face 업로드(온라인/오프라인 전환 포함) =====
-    from huggingface_hub import HfApi, create_repo, upload_folder
-    
-    # 0) ONLINE 전환 (모델/토크나이저 로드/리포 생성은 네트워크 필요)
+
+   # 0) ONLINE 전환 (모델/토크나이저 로드/리포 생성은 네트워크 필요)
     os.environ.pop('TRANSFORMERS_OFFLINE', None)
     
     # 1) 로그인 확인
@@ -188,14 +174,15 @@ if __name__ == '__main__':
         print(f"[HF] Logged in as: {username}")
     except Exception as e:
         raise SystemExit("[HF] 먼저 `huggingface-cli login` 하세요.") from e
+
+    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
+    hf_repo_name = default_repo_name
     
     # 2) 토크나이저/모델 로드 (아직 OFFLINE 금지)
     tokenizer = AutoTokenizer.from_pretrained(
         CFG.model.name,
         use_fast=True
     )
-    # ===== 3) JSONL 로드 + 토크나이즈/라벨 정렬 =====
-    from datasets import load_dataset
     
     # 학습용 JSONL 경로 (너 저장한 파일 경로로 맞춤)
     jsonl_path = str(Path(os.getenv('DATA_DIR')) / 'mdd-gen/llama3_placeholder_2.3K_v0.jsonl')
@@ -280,7 +267,7 @@ if __name__ == '__main__':
     )
     
     # 콜레이터
-    collator = DataCollatorForTokenClassification(tokenizer)
+    collator = DataCollatorForTokenClassification(tokenizer, pad_to_multiple_of=8)
    
     # 3) 리포 생성(이미 있으면 통과)
     try:
@@ -314,9 +301,11 @@ if __name__ == '__main__':
     # 6) (선택) 학습 중엔 네트워크 차단하고 싶으면 다시 OFFLINE
     os.environ['TRANSFORMERS_OFFLINE'] = '1'
 
-    
+    use_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+   
     # ↓↓↓ TrainingArguments는 v5 기준으로 eval_strategy 사용, 학습 중 push는 끈다(자동 create_repo 방지)
-    gradient_checkpointing_kwargs = {'use_reentrant': CFG.train_args.use_reentrant}
+    gradient_checkpointing_kwargs = {'use_reentrant': getattr(CFG.train_args, 'use_reentrant', False)}
+
     args = TrainingArguments(
         output_dir=str(output_dir),
     
@@ -332,7 +321,6 @@ if __name__ == '__main__':
     
         report_to="wandb",
         eval_strategy="steps",
-        evaluation_strategy="steps",
         logging_steps=eval_steps,
         save_steps=eval_steps,
         save_total_limit=2,
@@ -381,107 +369,6 @@ if __name__ == '__main__':
         commit_message="final model upload",
     )
     print(f"[HF] Pushed to: https://huggingface.co/{username}/{hf_repo_name}")
-
-    ############################################
-    # F5 Score on Validation Dataset
-    # Adjust Threshold
-    ############################################
-
-    # Predict on val dataset
-    predictions = trainer.predict(ds_val).predictions
-    weighted_preds = softmax(predictions, axis=-1) * 1.0
-    preds = weighted_preds.argmax(-1)
-    # preds_without_O = weighted_preds[:, :, :12].argmax(-1)
-    # O_preds = weighted_preds[:, :, 12]
-    preds_without_O = weighted_preds[:, :, :-1].argmax(-1)
-    O_preds = weighted_preds[:, :, -1]
-
-    # Test various threshold levels
-    f5_scores = {}
-    for threshold in [0.1, 0.2, 0.3, 0.4,
-                      0.5, 0.7, 0.8, 0.9, 0.95, 0.98, 0.99]:
-        preds_final = np.where(O_preds < threshold, preds_without_O, preds)
-        # Prepare to plunder the data for valuable triplets!
-        triplets = []
-        document, token, label, token_str = [], [], [], []
-        # For each prediction, token mapping, offsets, tokens, and document in
-        # the dataset
-        for p, row in zip(preds_final, ds_val):
-            token_map = row['token_map']
-            offsets = row['offset_mapping']
-            tokens = row['tokens']
-            doc = row['document']
-
-            # Iterate through each token prediction and its corresponding
-            # offsets
-            for token_pred, (start_idx, end_idx) in zip(p, offsets):
-                label_pred = id2label[token_pred]  # Predicted label from token
-
-                # If start and end indices sum to zero, continue to the next
-                # iteration
-                if start_idx + end_idx == 0:
-                    continue
-
-                # If the token mapping at the start index is -1, increment
-                # start index
-                if token_map[start_idx] == -1:
-                    start_idx += 1
-
-                # Ignore leading whitespace tokens ("\n\n")
-                while start_idx < len(
-                        token_map) and tokens[token_map[start_idx]].isspace():
-                    start_idx += 1
-
-                # If start index exceeds the length of token mapping, break the
-                # loop
-                if start_idx >= len(token_map):
-                    break
-
-                token_id = token_map[start_idx]   # Token ID at start index
-
-                # Ignore "O" predictions and whitespace tokens
-                if label_pred != "O" and token_id != -1:
-                    # Form a triplet
-                    triplet = (doc, token_id)  # Form a triplet
-
-                    # If the triplet is not in the list of triplets, add it
-                    if triplet not in triplets:
-                        document.append(doc)
-                        token.append(token_id)
-                        label.append(label_pred)
-                        # token_str.append(tokens[token_id])
-                        token_str.append(tokens[token_id])
-                        triplets.append(triplet)
-
-        # Prediction dataframe
-        df_pred = pd.DataFrame({"document": document,
-                                "token": token,
-                                "label": label,
-                                "token_str": token_str})
-        # Score val data
-        df_ref = df_val.copy()
-        df_ref['document'] = df_ref['document'].astype(str)
-        df_ref = df_ref[df_ref['document'].isin(
-            ds_val['document'])].reset_index(drop=True)
-        df_ref = (df_ref.explode(['tokens', 'labels', 'trailing_whitespace'])
-                  .reset_index(drop=True)
-                  .rename(columns={'labels': 'label'}))
-        df_ref['token'] = df_ref.groupby('document').cumcount()
-        df_ref = df_ref[df_ref['label'] != 'O'].copy()
-        df_ref = df_ref.reset_index().rename(columns={'index': 'row_id'})
-        df_ref = df_ref[['row_id', 'document', 'token', 'label']].copy()
-        m = compute_metrics(df_pred, df_ref)
-        print(f'Threshold: {threshold}; F5: {m["ents_f5"]:.4f}')
-        f5_scores[f'f5_{threshold}'] = m['ents_f5']
-
-    # Best threshold for F5
-    best_threshold = -1.0
-    best_f5 = -1.0
-    for name, key in f5_scores.items():
-        if key > best_f5:
-            best_f5 = key
-            best_threshold = float(name.split('f5_')[-1])
-    print(f'Best F5: {best_f5:.4f}; Threshold: {best_threshold}')
 
     ############################################
     # Log Metrics to WandB
