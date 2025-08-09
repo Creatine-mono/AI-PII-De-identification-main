@@ -198,7 +198,7 @@ if __name__ == '__main__':
         model_id,
         use_fast=True
     )
-        model = AutoModelForTokenClassification.from_pretrained(
+    model = AutoModelForTokenClassification.from_pretrained(
         model_id,     # ← CFG.model.name  → model_id
         num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id
     )
