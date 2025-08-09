@@ -170,6 +170,13 @@ if __name__ == '__main__':
     if CFG.debug:
         run.name = 'junk-debug'
 
+    model_id = getattr(CFG.model, "name", None)
+    if not model_id:
+        raise ValueError("CFG.model.name이 비어있습니다. YAML에서 model.name을 설정하세요.")
+    # 잘못된 축약형이면 보정
+    if model_id == "deberta-v3-large":
+        model_id = "microsoft/deberta-v3-large"
+
 
    # 0) ONLINE 전환 (모델/토크나이저 로드/리포 생성은 네트워크 필요)
     os.environ.pop('TRANSFORMERS_OFFLINE', None)
