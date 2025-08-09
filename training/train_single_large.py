@@ -282,7 +282,13 @@ if __name__ == '__main__':
     hf_username = os.getenv("psh3333") or "psh243360"  # ← 네 계정으로 고정
     default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
     hf_repo_id = os.getenv("HF_REPO", f"{hf_username}/{default_repo_name}")
-    
+    if hf_token:
+        login(token=hf_token)
+
+    try:
+        create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
+    except Exception as e:
+        print(f"[HF] create_repo warning: {e}")
     # ===== Hugging Face Hub 설정 =====
     from huggingface_hub import login, create_repo
     
@@ -312,6 +318,7 @@ if __name__ == '__main__':
         output_dir.mkdir(parents=False, exist_ok=True)
     if run.name == 'junk-debug':
         os.system(f'rm -rf {str(output_dir)}/*')
+    shutil.copyfile(str(Path(args.dir) / args.name), str(output_dir / args.name))
     # Send copy of cfg to output directory
     shutil.copyfile(str(Path(args.dir) / args.name),
                     str(output_dir / args.name))
