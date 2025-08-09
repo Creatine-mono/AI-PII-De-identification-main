@@ -187,7 +187,9 @@ if __name__ == '__main__':
         "microsoft/deberta-v3-large",
         num_labels=len(id2label),
         id2label=id2label,
-        label2id=label2id
+        label2id=label2id,
+        ignore_mismatched_sizes=True,
+        use_safetensors=True,
     )
     
     # Add tokens
