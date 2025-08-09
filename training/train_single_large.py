@@ -179,16 +179,13 @@ if __name__ == '__main__':
     del data
     _ = gc.collect()
 
-    # Tokenizer (로컬 전용 로드)
-    model_local_dir = Path(os.getenv('MODEL_DIR')) / CFG.model.name
-    assert model_local_dir.exists(), f"MODEL_DIR 경로 없음: {model_local_dir}"
-    
+    # Tokenizer (허브에서 로드)
     tokenizer = AutoTokenizer.from_pretrained(
-        str(model_local_dir),
-        local_files_only=True,  # 허브 접근 안 함
+        CFG.model.name,  # 허브 리포 ID (예: "microsoft/deberta-v3-large")
         # use_fast=CFG.tokenizer.use_fast,
         # do_lower_case=CFG.tokenizer.do_lower,
     )
+    
     # Add tokens
     if CFG.tokenizer.add_tokens is not None:
         for token_to_add in CFG.tokenizer.add_tokens:
