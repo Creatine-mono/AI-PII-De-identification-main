@@ -70,6 +70,7 @@ pip install evaluate                 # metrics 모듈
 pip install tokenizers==0.19.1       # 최신 토크나이저 버전 고정
 pip install bitsandbytes             # 메모리 절감(8bit/4bit)
 pip install python-dotenv            # 환경변수 로딩
+pip install pytorch_lightning
 
 # 5. 환경 변수 설정
 export CUDA_VISIBLE_DEVICES=0
