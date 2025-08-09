@@ -249,6 +249,7 @@ if __name__ == '__main__':
             toks_batch,
             is_split_into_words=True,
             truncation=True,
+            max_length=256,
             padding=False,
             add_special_tokens=True,
         )
