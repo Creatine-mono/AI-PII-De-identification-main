@@ -196,7 +196,7 @@ if __name__ == '__main__':
     # 2) 토크나이저/모델 로드 (아직 OFFLINE 금지)
     tokenizer = AutoTokenizer.from_pretrained(
         model_id,
-        use_fast=True
+        use_fast=False
     )
     model = AutoModelForTokenClassification.from_pretrained(
         model_id,     # ← CFG.model.name  → model_id
