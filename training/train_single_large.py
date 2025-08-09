@@ -199,6 +199,32 @@ if __name__ == '__main__':
         model_id,
         use_fast=True
     )
+    # (2) 라벨 정렬 함수 정의
+    def align_labels_with_tokens(batch):
+        # batch["tokens"]: list[list[str]]
+        # batch["labels"]: list[list[str]]  (라벨 문자열, 예: 'B-EMAIL', 'O', ...)
+        tok = tokenizer(
+            batch["tokens"],
+            is_split_into_words=True,
+            truncation=True,
+            padding=False,
+            add_special_tokens=True,
+        )
+    
+        new_labels = []
+        for i, labs in enumerate(batch["labels"]):
+            word_ids = tok.word_ids(batch_index=i)  # fast 토크나이저 전용
+            ids = []
+            for wid in word_ids:
+                if wid is None:
+                    ids.append(-100)  # [CLS], [SEP], 패딩 등 무시
+                else:
+                    ids.append(label2id.get(labs[wid], label2id["O"]))  # 라벨 문자열→id
+            new_labels.append(ids)
+    
+        tok["labels"] = new_labels
+        return tok
+    
     model = AutoModelForTokenClassification.from_pretrained(
         model_id,     # ← CFG.model.name  → model_id
         num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id, use_safetensors=True 
