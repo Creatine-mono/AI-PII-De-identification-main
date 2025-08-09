@@ -147,117 +147,7 @@ if __name__ == '__main__':
 
     # Load the configuration file
     CFG = load_cfg(base_dir=Path(args.dir),
-                   filename=args.name)
-    CFG.paths.base_dir = os.getenv('BASE_DIR')
-    CFG.paths.data_dir = os.getenv('DATA_DIR')
-    CFG.paths.data_dir = "/AI-PII-De-identification-main/data/mdd-gen"
-    CFG.paths.data.train = ["llama3_placeholder_2.3K_v0.json"]
-    CFG.paths.data.val = "llama3_placeholder_2.3K_v0.json"
-    
-    # Seed everything
-    seed_everything(seed=CFG.seed)
-
-    # Load data
-    df_train, df_val = (LoadData(data_dir=CFG.paths.data_dir,
-                                 train_files=CFG.paths.data.train,
-                                 val_file=CFG.paths.data.val,
-                                 path_tokenizer=str(
-                                     Path(os.getenv('MODEL_DIR')) / CFG.model.name),
-                                 split=CFG.data.split,
-                                 max_token_length=CFG.tokenizer.max_token_length)
-                        .load(explode=False,
-                              ds_ratio=CFG.data.ds_ratio,
-                              mask_data=CFG.mask_data.apply,
-                              mask_prob=CFG.mask_data.prob))
-
-    # Get labels
-    data = df_train.to_dict(orient='records') + \
-        df_val.to_dict(orient='records')
-    ALL_LABELS = sorted(list(set(chain(*[x["labels"] for x in data]))))
-    label2id = {l: i for i, l in enumerate(ALL_LABELS)}
-    id2label = {v: k for k, v in label2id.items()}
-    del data
-    _ = gc.collect()
-    
-    tokenizer = AutoTokenizer.from_pretrained(
-        "microsoft/deberta-v3-large",
-        use_fast=True
-    )
-    model = AutoModelForTokenClassification.from_pretrained(
-        "microsoft/deberta-v3-large",
-        num_labels=len(id2label),
-        id2label=id2label,
-        label2id=label2id,
-        ignore_mismatched_sizes=True,
-        use_safetensors=True,
-    )
-    
-    # Add tokens
-    if CFG.tokenizer.add_tokens is not None:
-        for token_to_add in CFG.tokenizer.add_tokens:
-            token_to_add = bytes(
-                token_to_add, 'utf-8').decode('unicode_escape')
-            tokenizer.add_tokens(AddedToken(token_to_add, normalized=False))
-
-    # Debug smaller dataset
-    if CFG.debug:
-        df_train = df_train.sample(
-            n=500, random_state=42).reset_index(
-            drop=True)
-        # df_val = df_val.sample(n=250, random_state=42).reset_index(drop=True)
-
-    # Datasets
-    ds_train = create_datasets.train_val_dataset(
-        tokenizer=tokenizer,
-        label2id=label2id,
-        df=df_train.copy(),
-        max_length=CFG.tokenizer.max_token_length,
-        num_proc=8)
-    ds_val = create_datasets.train_val_dataset(
-        tokenizer=tokenizer,
-        label2id=label2id,
-        df=df_val.copy(),
-        max_length=CFG.tokenizer.max_token_length,
-        num_proc=8)
-
-    # Downsample negative samples
-    if CFG.data.ds_ratio is not None:
-        negative_idxs = [i for i, labels in enumerate(ds_train["provided_labels"])
-                         if all(np.array(labels) == "O")]
-        if len(negative_idxs) > 0:
-            exclude_indices = negative_idxs[int(
-                len(negative_idxs) * CFG.data.ds_ratio):]
-            keep_indices = set(list(range(len(ds_train)))) - \
-                set(exclude_indices)
-            ds_train = ds_train.select(list(keep_indices))
-            del exclude_indices, keep_indices
-
-    # Shuffle data
-    ds_train = ds_train.shuffle(42)
-    ds_val = ds_val.shuffle(42)
-
-    # Resize model token embeddings if tokens were added
-    if CFG.tokenizer.add_tokens is not None:
-        model.resize_token_embeddings(
-            len(tokenizer),
-            # pad_to_multiple_of=CFG.tokenizer.pad_to_multiple_of,
-        )
-
-    # Freeze layers
-    if CFG.model.freeze.apply:
-        for param in model.deberta.embeddings.parameters():
-            param.requires_grad = False if CFG.model.freeze.apply else True
-        for layer in model.deberta.encoder.layer[:CFG.model.freeze.num_layers]:
-            for param in layer.parameters():
-                param.requires_grad = False
-
-    # Collator
-    collator = DataCollatorForTokenClassification(
-        tokenizer,
-        pad_to_multiple_of=CFG.tokenizer.pad_to_multiple_of,
-    )
-
-    # ===== Collator 이후 그대로 두고, 여기부터 교체 =====
+      정
     from huggingface_hub import HfApi, create_repo  # 반드시 import
     
     # Calculate num train steps
@@ -273,7 +163,7 @@ if __name__ == '__main__':
     
     # Setup WandB (환경변수 키 없이 캐시 로그인)
     try:
-        wandb.login(relogin=False)  # 이미 로그인돼 있으면 조용히 패스
+        wandb.login(relogin=False)  # 이미 로그인돼 있으면 패스
     except Exception as e:
         print("[W&B] 먼저 터미널에서 `wandb login` 실행이 필요합니다:", e)
     run = wandb.init(project='PII')
