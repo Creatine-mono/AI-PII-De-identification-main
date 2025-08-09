@@ -326,12 +326,7 @@ if __name__ == '__main__':
     # 콜레이터
     collator = DataCollatorForTokenClassification(tokenizer, pad_to_multiple_of=8)
    
-    # 3) 리포 생성(이미 있으면 통과)
-    try:
-        create_repo(repo_id=hf_repo_name, private=True, exist_ok=True)
-        print(f"[HF] Repo ready: {hf_repo_name}")
-    except Exception as e:
-        print(f"[HF] create_repo warning: {e}")
+
     
     # 4) 로컬 저장 (출력 디렉토리 준비)
     output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
@@ -343,14 +338,12 @@ if __name__ == '__main__':
     # 5) Hub 업로드 (git-lfs 자동, 대용량 파일 처리)
     #    - repo_id 에 사용자명 생략 가능(현재 로그인 네임스페이스로 업로드)
     try:
-        upload_folder(
-            repo_id=hf_repo_name,
-            folder_path=str(output_dir),
-            path_in_repo=".",                  # 루트에 업로드
-            commit_message="upload tokenizer & model artifacts",
-            private=True,
-            ignore_patterns=["*.pt", "*.bin.tmp", "**/__pycache__/**"]
-        )
+    upload_folder(
+        repo_id=f"{username}/{hf_repo_name}",
+        folder_path=str(output_dir),
+        path_in_repo=".",
+        commit_message="upload tokenizer & model artifacts",
+    )
         print(f"[HF] Uploaded to: https://huggingface.co/{who.get('name', username)}/{hf_repo_name}")
     except Exception as e:
         print(f"[HF] upload_folder warning: {e}")
