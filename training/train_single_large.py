@@ -226,9 +226,6 @@ if __name__ == '__main__':
     )
     # 평가 안함
     ds_val = None
-    
-    if len(ds_train) == 0:
-        raise ValueError("Train dataset is empty after tokenization.")
         
     # ==== 스텝 계산 (ds_train/ds_val 생성 직후) ====
     train_size = len(ds_train)
@@ -259,10 +256,6 @@ if __name__ == '__main__':
     if len(ds_train) == 0 or len(ds_val) == 0:
         raise ValueError("Empty train/val dataset after tokenization. Check JSONL path and columns.")
 
-    
-    model = AutoModelForTokenClassification.from_pretrained(
-        CFG.model.name, num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id
-    )
     
     # 콜레이터
     collator = DataCollatorForTokenClassification(tokenizer, pad_to_multiple_of=8)
