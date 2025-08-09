@@ -179,9 +179,13 @@ if __name__ == '__main__':
     del data
     _ = gc.collect()
 
-    # Tokenizer
+    # Tokenizer (로컬 전용 로드)
+    model_local_dir = Path(os.getenv('MODEL_DIR')) / CFG.model.name
+    assert model_local_dir.exists(), f"MODEL_DIR 경로 없음: {model_local_dir}"
+    
     tokenizer = AutoTokenizer.from_pretrained(
-        str(Path(os.getenv('MODEL_DIR')) / CFG.model.name),
+        str(model_local_dir),
+        local_files_only=True,  # 허브 접근 안 함
         # use_fast=CFG.tokenizer.use_fast,
         # do_lower_case=CFG.tokenizer.do_lower,
     )
@@ -229,15 +233,15 @@ if __name__ == '__main__':
     ds_train = ds_train.shuffle(42)
     ds_val = ds_val.shuffle(42)
 
-    # Model
+    # Model (로컬 전용 로드)
     model = AutoModelForTokenClassification.from_pretrained(
-        str(Path(os.getenv('MODEL_DIR')) / CFG.model.name),
+        str(model_local_dir),
+        local_files_only=True,            # 허브 접근 금지
         num_labels=len(id2label.values()),
         id2label=id2label,
         label2id=label2id,
         ignore_mismatched_sizes=True,
     )
-
     # Resize model token embeddings if tokens were added
     if CFG.tokenizer.add_tokens is not None:
         model.resize_token_embeddings(
