@@ -199,12 +199,56 @@ if __name__ == '__main__':
         model_id,
         use_fast=True
     )
-    # (2) 라벨 정렬 함수 정의
-    def align_labels_with_tokens(batch):
-        # batch["tokens"]: list[list[str]]
-        # batch["labels"]: list[list[str]]  (라벨 문자열, 예: 'B-EMAIL', 'O', ...)
+        def align_labels_with_tokens(batch):
+        def normalize_tokens(toks):
+            # 기대형태: list[str]
+            if isinstance(toks, list):
+                if len(toks) > 0 and isinstance(toks[0], dict):
+                    # 예: [{"text": "Hello", ...}, ...] / [{"token": "Hello"}, ...]
+                    if "text" in toks[0]:
+                        return [t["text"] for t in toks]
+                    if "token" in toks[0]:
+                        return [t["token"] for t in toks]
+                if len(toks) > 0 and isinstance(toks[0], str):
+                    return toks
+                return [str(x) for x in toks]
+            elif isinstance(toks, str):
+                # 공백 기준 토큰화(임시)
+                return toks.split()
+            else:
+                return [str(toks)]
+
+        def normalize_labels(labs):
+            # 기대형태: list[str] (라벨 문자열)
+            if isinstance(labs, list):
+                if len(labs) > 0 and isinstance(labs[0], dict):
+                    # 예: [{"label":"B-EMAIL"}, ...] or {"labels": "..."}
+                    key = "label" if "label" in labs[0] else ("labels" if "labels" in labs[0] else None)
+                    if key is not None:
+                        return [l[key] for l in labs]
+                if len(labs) > 0 and isinstance(labs[0], str):
+                    return labs
+                return [str(x) for x in labs]
+            elif isinstance(labs, str):
+                return labs.split()
+            else:
+                return [str(labs)]
+    
+        toks_batch, labs_batch = [], []
+        for toks, labs in zip(batch["tokens"], batch["labels"]):
+            toks = normalize_tokens(toks)
+            labs = normalize_labels(labs)
+            # 길이 안 맞으면 라벨을 O로 패딩/잘라내기 (응급처치)
+            if len(labs) != len(toks):
+                if len(labs) < len(toks):
+                    labs = labs + ["O"] * (len(toks) - len(labs))
+                else:
+                    labs = labs[:len(toks)]
+            toks_batch.append(toks)
+            labs_batch.append(labs)
+    
         tok = tokenizer(
-            batch["tokens"],
+            toks_batch,
             is_split_into_words=True,
             truncation=True,
             padding=False,
@@ -212,14 +256,14 @@ if __name__ == '__main__':
         )
     
         new_labels = []
-        for i, labs in enumerate(batch["labels"]):
-            word_ids = tok.word_ids(batch_index=i)  # fast 토크나이저 전용
+        for i, labs in enumerate(labs_batch):
+            word_ids = tok.word_ids(batch_index=i)
             ids = []
             for wid in word_ids:
                 if wid is None:
-                    ids.append(-100)  # [CLS], [SEP], 패딩 등 무시
+                    ids.append(-100)
                 else:
-                    ids.append(label2id.get(labs[wid], label2id["O"]))  # 라벨 문자열→id
+                    ids.append(label2id.get(labs[wid], label2id["O"]))
             new_labels.append(ids)
     
         tok["labels"] = new_labels
