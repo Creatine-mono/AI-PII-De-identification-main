@@ -194,12 +194,10 @@ if __name__ == '__main__':
     default_repo_name = f"{model_id}-pii-{run.name}".replace('/', '-')
     hf_repo_name = default_repo_name
     
-    # 2) 토크나이저/모델 로드 (아직 OFFLINE 금지)
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_id,
-        use_fast=True
-    )
-        def align_labels_with_tokens(batch):
+    # fast 토크나이저 권장 (word_ids() 필요)
+    tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+    
+    def align_labels_with_tokens(batch):
         def normalize_tokens(toks):
             # 기대형태: list[str]
             if isinstance(toks, list):
@@ -217,7 +215,7 @@ if __name__ == '__main__':
                 return toks.split()
             else:
                 return [str(toks)]
-
+    
         def normalize_labels(labs):
             # 기대형태: list[str] (라벨 문자열)
             if isinstance(labs, list):
@@ -268,6 +266,7 @@ if __name__ == '__main__':
     
         tok["labels"] = new_labels
         return tok
+
     
     model = AutoModelForTokenClassification.from_pretrained(
         model_id,     # ← CFG.model.name  → model_id
