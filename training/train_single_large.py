@@ -257,135 +257,123 @@ if __name__ == '__main__':
         pad_to_multiple_of=CFG.tokenizer.pad_to_multiple_of,
     )
 
-    # Calculate num train steps
-    num_steps = CFG.train_args.num_train_epochs * len(ds_train)
-    num_steps = num_steps / CFG.train_args.per_device_train_batch_size
-    num_steps = num_steps / CFG.train_args.gradient_accumulation_steps
-    print(f'My Calculated NUM_STEPS: {num_steps:,.2f}')
+# ===== Collator 이후 그대로 두고, 여기부터 교체 =====
+from huggingface_hub import HfApi, create_repo  # 반드시 import
 
-    # Step per epoch to eval every 0.2 epochs
-    eval_steps = int(math.ceil((num_steps / CFG.train_args.num_train_epochs) *
-                               CFG.train_args.eval_epoch_fraction))
-    print(f'My Calculated eval_steps: {eval_steps:,}')
-    
-    # Setup WandB
-    if CFG.debug:
-        os.environ['WANDB_MODE'] = 'disabled'
-        run = wandb.init(project='PII')
-        run.name = 'junk-debug'
-    else:
-        os.environ['WANDB_MODE'] = CFG.wandb.mode
-        wandb.login(key=os.getenv('wandb_api_key'))
-        run = wandb.init(project='PII')
-        
-    hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")
-    hf_username = os.getenv("psh3333") or "psh243360"  # ← 네 계정으로 고정
-    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
-    hf_repo_id = os.getenv("HF_REPO", f"{hf_username}/{default_repo_name}")
-    if hf_token:
-        login(token=hf_token)
+# Calculate num train steps
+num_steps = CFG.train_args.num_train_epochs * len(ds_train)
+num_steps = num_steps / CFG.train_args.per_device_train_batch_size
+num_steps = num_steps / CFG.train_args.gradient_accumulation_steps
+print(f'My Calculated NUM_STEPS: {num_steps:,.2f}')
 
-    try:
-        create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
-    except Exception as e:
-        print(f"[HF] create_repo warning: {e}")
-        
-    # ===== Hugging Face Hub 설정 & 출력 디렉토리 준비 =====
-    from huggingface_hub import HfApi, create_repo
-    
-    # 1) 출력 디렉토리 먼저 정의
-    output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
-    output_dir.mkdir(parents=True, exist_ok=True)
-    if run.name == 'junk-debug':
-        os.system(f'rm -rf {str(output_dir)}/*')
-    
-    # cfg 파일 백업
-    shutil.copyfile(str(Path(args.dir) / args.name), str(output_dir / args.name))
-    
-    # 2) 현재 로그인된 HF 계정 정보 가져오기
-    api = HfApi()
-    try:
-        who = api.whoami()  # 캐시에서 읽음
-        username = who.get("name") or who.get("orgs", [None])[0]
-        if username is None:
-            raise RuntimeError("Hugging Face 로그인이 필요합니다.")
-    except Exception as e:
-        raise SystemExit(
-            "[HF] 먼저 터미널에서 `huggingface-cli login`을 실행하세요."
-        ) from e
-    
-    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
-    hf_repo_id = f"{username}/{default_repo_name}"
-    
-    # 3) 오프라인 모드 해제 후 리포 생성
-    os.environ.pop('TRANSFORMERS_OFFLINE', None)
-    try:
-        create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
-    except Exception as e:
-        print(f"[HF] create_repo warning: {e}")
-    
-    # 4) 토크나이저 저장
-    tokenizer.save_pretrained(output_dir)
-    
-    # 5) TrainingArguments (Transformers v5는 eval_strategy 사용)
-    gradient_checkpointing_kwargs = {'use_reentrant': CFG.train_args.use_reentrant}
-    args = TrainingArguments(
-        output_dir=str(output_dir),
-        fp16=CFG.train_args.fp16,
-        learning_rate=CFG.train_args.learning_rate,
-        num_train_epochs=CFG.train_args.num_train_epochs,
-        per_device_train_batch_size=CFG.train_args.per_device_train_batch_size,
-        gradient_accumulation_steps=CFG.train_args.gradient_accumulation_steps,
-        per_device_eval_batch_size=CFG.train_args.per_device_train_batch_size,
-        report_to="wandb",
-        eval_strategy="steps",  # evaluation_strategy → eval_strategy 변경
-        save_total_limit=2,
-        logging_steps=eval_steps,
-        save_steps=eval_steps,
-        lr_scheduler_type=CFG.train_args.lr_scheduler_type,
-        metric_for_best_model=CFG.train_args.metric_for_best_model,
-        greater_is_better=CFG.train_args.greater_is_better,
-        warmup_ratio=CFG.train_args.warmup_ratio,
-        weight_decay=CFG.train_args.weight_decay,
-        load_best_model_at_end=True,
-        gradient_checkpointing=CFG.train_args.gradient_checkpointing,
-        gradient_checkpointing_kwargs=gradient_checkpointing_kwargs,
-        push_to_hub=True,
-        hub_model_id=hf_repo_id,
-        hub_private_repo=True,
-        hub_strategy="every_save",
+# Step per epoch to eval every 0.2 epochs
+eval_steps = int(math.ceil((num_steps / CFG.train_args.num_train_epochs) *
+                           CFG.train_args.eval_epoch_fraction))
+print(f'My Calculated eval_steps: {eval_steps:,}')
+
+# Setup WandB (환경변수 키 없이 캐시 로그인)
+try:
+    wandb.login(relogin=False)  # 이미 로그인돼 있으면 조용히 패스
+except Exception as e:
+    print("[W&B] 먼저 터미널에서 `wandb login` 실행이 필요합니다:", e)
+run = wandb.init(project='PII')
+if CFG.debug:
+    run.name = 'junk-debug'
+
+# ===== HF: 로그인 캐시로 현재 계정 확인 & 리포 설정 =====
+api = HfApi()
+try:
+    who = api.whoami()  # 캐시된 로그인 정보 사용
+    username = who.get("name")
+    if not username:
+        raise RuntimeError("no username")
+except Exception as e:
+    raise SystemExit("[HF] 먼저 `huggingface-cli login` 하세요.") from e
+
+default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
+# 네 계정이 psh3333 라고 했으니, whoami 결과가 psh3333이어야 정상
+# repo_id는 '사용자명/리포명'으로 명시하거나, 사용자명 없이 리포명만 써도 현재 로그인 네임스페이스로 생성됨
+hf_repo_name = default_repo_name  # ← 사용자명 없이
+# hf_repo_id = f"{username}/{default_repo_name}"  # ← 이렇게 써도 OK
+
+# 출력 디렉토리
+output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
+output_dir.mkdir(parents=True, exist_ok=True)
+if run.name == 'junk-debug':
+    os.system(f'rm -rf {str(output_dir)}/*')
+shutil.copyfile(str(Path(args.dir) / args.name), str(output_dir / args.name))
+
+# 업로드 위해 오프라인 해제 후 리포 생성(있으면 통과)
+os.environ.pop('TRANSFORMERS_OFFLINE', None)
+try:
+    create_repo(repo_id=hf_repo_name, private=True, exist_ok=True)
+except Exception as e:
+    print(f"[HF] create_repo warning: {e}")
+
+# 토크나이저 로컬 저장
+tokenizer.save_pretrained(output_dir)
+
+# ↓↓↓ TrainingArguments는 v5 기준으로 eval_strategy 사용, 학습 중 push는 끈다(자동 create_repo 방지)
+gradient_checkpointing_kwargs = {'use_reentrant': CFG.train_args.use_reentrant}
+args = TrainingArguments(
+    output_dir=str(output_dir),
+    fp16=CFG.train_args.fp16,
+    learning_rate=CFG.train_args.learning_rate,
+    num_train_epochs=CFG.train_args.num_train_epochs,
+    per_device_train_batch_size=CFG.train_args.per_device_train_batch_size,
+    gradient_accumulation_steps=CFG.train_args.gradient_accumulation_steps,
+    per_device_eval_batch_size=CFG.train_args.per_device_train_batch_size,
+    report_to="wandb",
+    eval_strategy="steps",           # ← evaluation_strategy 아님
+    save_total_limit=2,
+    logging_steps=eval_steps,
+    save_steps=eval_steps,
+    lr_scheduler_type=CFG.train_args.lr_scheduler_type,
+    metric_for_best_model=CFG.train_args.metric_for_best_model,
+    greater_is_better=CFG.train_args.greater_is_better,
+    warmup_ratio=CFG.train_args.warmup_ratio,
+    weight_decay=CFG.train_args.weight_decay,
+    load_best_model_at_end=True,
+    gradient_checkpointing=CFG.train_args.gradient_checkpointing,
+    gradient_checkpointing_kwargs=gradient_checkpointing_kwargs,
+
+    push_to_hub=False,               # ← 학습 중 자동 업로드/리포생성 막기
+)
+
+class_weights = None
+if CFG.class_weights.apply or CFG.focal_loss.apply:
+    trainer = CustomTrainer(
+        model=model,
+        args=args,
+        train_dataset=ds_train,
+        eval_dataset=ds_val,
+        data_collator=collator,
+        tokenizer=tokenizer,  # v5 경고 무시는 가능. 원하면 processing_class=tokenizer로 변경
+        compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
+        class_weights=class_weights,
+        focal_loss_info=CFG.focal_loss,
     )
-    
-    # 6) 트레이너 생성
-    class_weights = None
-    if CFG.class_weights.apply or CFG.focal_loss.apply:
-        trainer = CustomTrainer(
-            model=model,
-            args=args,
-            train_dataset=ds_train,
-            eval_dataset=ds_val,
-            data_collator=collator,
-            tokenizer=tokenizer,
-            compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
-            class_weights=class_weights,
-            focal_loss_info=CFG.focal_loss,
-        )
-    else:
-        trainer = Trainer(
-            model=model,
-            args=args,
-            train_dataset=ds_train,
-            eval_dataset=ds_val,
-            data_collator=collator,
-            tokenizer=tokenizer,
-            compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
-        )
-    
-    # 7) 학습
-    trainer.train()
-    
-    print(f"[HF] Will push to: https://huggingface.co/{hf_repo_id}")
-    
+else:
+    trainer = Trainer(
+        model=model,
+        args=args,
+        train_dataset=ds_train,
+        eval_dataset=ds_val,
+        data_collator=collator,
+        tokenizer=tokenizer,  # FutureWarning만 뜸
+        compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
+    )
+
+# 학습
+trainer.train()
+
+# 학습 종료 후, 현재 로그인된 psh3333 네임스페이스로 수동 push
+trainer.push_to_hub(
+    repo_id=hf_repo_name,     # 사용자명 없이 → 로그인 계정(psh3333) 네임스페이스
+    private=True,
+    commit_message="final model upload",
+)
+print(f"[HF] Pushed to: https://huggingface.co/{username}/{hf_repo_name}")
 
     ############################################
     # F5 Score on Validation Dataset
