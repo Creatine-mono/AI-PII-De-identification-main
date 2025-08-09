@@ -66,6 +66,8 @@ pip install datasets
 
 pip install spacy
 
+pip install seqeval
+
 # 5. 환경 변수 설정
 export CUDA_VISIBLE_DEVICES=0
 
