@@ -73,6 +73,13 @@ if __name__ == '__main__':
     df = df[df.pii_ratio >= THRESHOLD].reset_index(drop=True)
     print(f'Num. Samples: {len(df):,}')
 
+    # 빈 데이터 가드
+    df = df[df.pii_ratio >= THRESHOLD].reset_index(drop=True)
+    print(f'Num. Samples: {len(df):,}')
+    if len(df) == 0:
+        raise ValueError(f"No samples remain after pii_ratio >= {THRESHOLD}.")
+
+
     # file_name 생성
     if 'file_name' not in df.columns:
         df['file_name'] = [f"{DOC_PREFIX}_src_{i}" for i in range(len(df))]
