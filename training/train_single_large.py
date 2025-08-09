@@ -377,8 +377,8 @@ if __name__ == '__main__':
     
         # 메모리 절약 옵션
         fp16=False,                          # GPU가 fp16 지원 시
-        bf16=False,                         # 둘 중 하나만 True
-        gradient_checkpointing=False,
+        bf16=True,                         # 둘 중 하나만 True
+        gradient_checkpointing=True,
         
         push_to_hub=False,
     )
