@@ -289,10 +289,11 @@ if __name__ == '__main__':
         create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
     except Exception as e:
         print(f"[HF] create_repo warning: {e}")
+        
     # ===== Hugging Face Hub 설정 & 출력 디렉토리 준비 =====
-    from huggingface_hub import login, create_repo
+    from huggingface_hub import HfApi, create_repo
     
-    # 1) 출력 디렉토리 먼저 정의 (여기서부터 output_dir 사용 가능)
+    # 1) 출력 디렉토리 먼저 정의
     output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
     output_dir.mkdir(parents=True, exist_ok=True)
     if run.name == 'junk-debug':
@@ -301,33 +302,32 @@ if __name__ == '__main__':
     # cfg 파일 백업
     shutil.copyfile(str(Path(args.dir) / args.name), str(output_dir / args.name))
     
-    # 2) HF 인증/리포지토리 정보
-    hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")             # 필수: write 권한 토큰
-    hf_username = os.getenv("HF_USERNAME")                    # 예: "psh3333"
+    # 2) 현재 로그인된 HF 계정 정보 가져오기
+    api = HfApi()
+    try:
+        who = api.whoami()  # 캐시에서 읽음
+        username = who.get("name") or who.get("orgs", [None])[0]
+        if username is None:
+            raise RuntimeError("Hugging Face 로그인이 필요합니다.")
+    except Exception as e:
+        raise SystemExit(
+            "[HF] 먼저 터미널에서 `huggingface-cli login`을 실행하세요."
+        ) from e
+    
     default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
+    hf_repo_id = f"{username}/{default_repo_name}"
     
-    # HF_REPO가 지정되면 그대로, 아니면 username/repo 형태로
-    if os.getenv("HF_REPO"):
-        hf_repo_id = os.getenv("HF_REPO")
-    elif hf_username:
-        hf_repo_id = f"{hf_username}/{default_repo_name}"
-    else:
-        # username이 없다면 단독 이름으로 생성(개인 네임스페이스)
-        hf_repo_id = default_repo_name
-    
-    # 3) 오프라인 모드 해제 후 로그인 및 리포 생성(이미 있으면 통과)
-    os.environ.pop('TRANSFORMERS_OFFLINE', None)  # 업로드 위해 해제
-    if hf_token:
-        login(token=hf_token)
+    # 3) 오프라인 모드 해제 후 리포 생성
+    os.environ.pop('TRANSFORMERS_OFFLINE', None)
     try:
         create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
     except Exception as e:
         print(f"[HF] create_repo warning: {e}")
     
-    # 4) 토크나이저를 먼저 로컬 저장(필요시)
+    # 4) 토크나이저 저장
     tokenizer.save_pretrained(output_dir)
     
-    # 5) TrainingArguments에 Hub 설정을 명확히 기입
+    # 5) TrainingArguments (Transformers v5는 eval_strategy 사용)
     gradient_checkpointing_kwargs = {'use_reentrant': CFG.train_args.use_reentrant}
     args = TrainingArguments(
         output_dir=str(output_dir),
@@ -338,7 +338,7 @@ if __name__ == '__main__':
         gradient_accumulation_steps=CFG.train_args.gradient_accumulation_steps,
         per_device_eval_batch_size=CFG.train_args.per_device_train_batch_size,
         report_to="wandb",
-        evaluation_strategy="steps",
+        eval_strategy="steps",  # evaluation_strategy → eval_strategy 변경
         save_total_limit=2,
         logging_steps=eval_steps,
         save_steps=eval_steps,
@@ -350,17 +350,14 @@ if __name__ == '__main__':
         load_best_model_at_end=True,
         gradient_checkpointing=CFG.train_args.gradient_checkpointing,
         gradient_checkpointing_kwargs=gradient_checkpointing_kwargs,
-        # Hub 연동
         push_to_hub=True,
         hub_model_id=hf_repo_id,
         hub_private_repo=True,
-        hub_strategy="every_save",  # save_steps마다 자동 push
+        hub_strategy="every_save",
     )
     
-    # 6) class_weights 미정 의도라도 안전하게 초기화 (focal_loss만 켜도 필요)
+    # 6) 트레이너 생성
     class_weights = None
-    
-    # 7) 트레이너 생성
     if CFG.class_weights.apply or CFG.focal_loss.apply:
         trainer = CustomTrainer(
             model=model,
@@ -384,13 +381,11 @@ if __name__ == '__main__':
             compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
         )
     
-    # 8) 학습 시작 (save_steps마다 HF에 자동 업로드됨)
+    # 7) 학습
     trainer.train()
     
-    # (선택) 마지막 상태를 한 번 더 푸시하고 싶으면:
-    # trainer.push_to_hub(commit_message="final model upload")
-    
     print(f"[HF] Will push to: https://huggingface.co/{hf_repo_id}")
+    
 
     ############################################
     # F5 Score on Validation Dataset
