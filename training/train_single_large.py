@@ -338,12 +338,12 @@ if __name__ == '__main__':
     # 5) Hub 업로드 (git-lfs 자동, 대용량 파일 처리)
     #    - repo_id 에 사용자명 생략 가능(현재 로그인 네임스페이스로 업로드)
     try:
-    upload_folder(
-        repo_id=f"{username}/{hf_repo_name}",
-        folder_path=str(output_dir),
-        path_in_repo=".",
-        commit_message="upload tokenizer & model artifacts",
-    )
+        upload_folder(
+            repo_id=f"{username}/{hf_repo_name}",
+            folder_path=str(output_dir),
+            path_in_repo=".",
+            commit_message="upload tokenizer & model artifacts",
+        )
         print(f"[HF] Uploaded to: https://huggingface.co/{who.get('name', username)}/{hf_repo_name}")
     except Exception as e:
         print(f"[HF] upload_folder warning: {e}")
