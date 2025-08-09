@@ -355,23 +355,26 @@ if __name__ == '__main__':
    
     # ↓↓↓ TrainingArguments는 v5 기준으로 eval_strategy 사용, 학습 중 push는 끈다(자동 create_repo 방지)
     gradient_checkpointing_kwargs = {'use_reentrant': getattr(CFG.train_args, 'use_reentrant', False)}
-
+    
     args = TrainingArguments(
         output_dir=str(output_dir),
-        learning_rate=CFG.train_args.learning_rate,
-        num_train_epochs=CFG.train_args.num_train_epochs,  # 과적합 원하면 크게 (예: 50~200)
-        per_device_train_batch_size=CFG.train_args.per_device_train_batch_size,
-        gradient_accumulation_steps=CFG.train_args.gradient_accumulation_steps,
+        per_device_train_batch_size=1,      # 무조건 1
+        gradient_accumulation_steps=1,      # 무조건 1
+        num_train_epochs=CFG.train_args.num_train_epochs,
     
-        # 평가/로그 저장 관련 완전히 끔
         eval_strategy="no",
         save_strategy="no",
         logging_strategy="no",
-        report_to=[],             # wandb도 끄려면 [], 쓰고 계속 쓰고 싶으면 "wandb"
+        report_to=[],
         load_best_model_at_end=False,
     
-        weight_decay=0.0,         # 암기 최적화: 정규화 제거
-        warmup_ratio=0.0,         # 웜업 제거
+        weight_decay=0.0,
+        warmup_ratio=0.0,
+    
+        # 메모리 절약 옵션
+        fp16=True,                          # GPU가 fp16 지원 시
+        bf16=False,                         # 둘 중 하나만 True
+        gradient_checkpointing=True,
         push_to_hub=False,
     )
 
