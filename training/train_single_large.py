@@ -197,7 +197,7 @@ if __name__ == '__main__':
     # 2) 토크나이저/모델 로드 (아직 OFFLINE 금지)
     tokenizer = AutoTokenizer.from_pretrained(
         model_id,
-        use_fast=False
+        use_fast=True
     )
     model = AutoModelForTokenClassification.from_pretrained(
         model_id,     # ← CFG.model.name  → model_id
@@ -322,9 +322,6 @@ if __name__ == '__main__':
             eval_dataset=ds_val,
             data_collator=collator,
             tokenizer=tokenizer,  # v5 경고 무시는 가능. 원하면 processing_class=tokenizer로 변경
-            compute_metrics=partial(train_metrics, all_labels=ALL_LABELS),
-            class_weights=class_weights,
-            focal_loss_info=CFG.focal_loss,
         )
     else:
         trainer = Trainer(
