@@ -40,7 +40,7 @@ import torch.nn.functional as F
 import random
 import torch
 from types import SimpleNamespace
-from pytorch_lightning import seed_everything
+from pytorch_lightning import seed_everything as pl_seed
 import copy
 import gc
 import sys
@@ -159,7 +159,7 @@ if __name__ == '__main__':
 
     # Load the configuration file
     CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
-    seed_everything(getattr(CFG, "seed", 42))
+    pl_seed(getattr(CFG, "seed", 42))
     
     # Setup WandB (환경변수 키 없이 캐시 로그인)
     try:
@@ -189,16 +189,20 @@ if __name__ == '__main__':
         print(f"[HF] Logged in as: {username}")
     except Exception as e:
         raise SystemExit("[HF] 먼저 `huggingface-cli login` 하세요.") from e
-
-    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
+    
+    default_repo_name = f"{model_id}-pii-{run.name}".replace('/', '-')
     hf_repo_name = default_repo_name
     
     # 2) 토크나이저/모델 로드 (아직 OFFLINE 금지)
     tokenizer = AutoTokenizer.from_pretrained(
-        CFG.model.name,
+        model_id,
         use_fast=True
     )
-    
+        model = AutoModelForTokenClassification.from_pretrained(
+        model_id,     # ← CFG.model.name  → model_id
+        num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id
+    )
+        
     # 학습용 JSONL 경로 (너 저장한 파일 경로로 맞춤)
     jsonl_path = str(Path(os.getenv('DATA_DIR')) / 'mdd-gen/llama3_placeholder_2.3K_v0.jsonl')
     
