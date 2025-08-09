@@ -200,7 +200,7 @@ if __name__ == '__main__':
     )
     model = AutoModelForTokenClassification.from_pretrained(
         model_id,     # ← CFG.model.name  → model_id
-        num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id
+        num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id, use_safetensors=True 
     )
         
     # 학습용 JSONL 경로 (너 저장한 파일 경로로 맞춤)
