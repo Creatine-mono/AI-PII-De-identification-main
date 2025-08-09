@@ -279,6 +279,32 @@ if __name__ == '__main__':
         os.environ['WANDB_MODE'] = CFG.wandb.mode
         wandb.login(key=os.getenv('wandb_api_key'))
         run = wandb.init(project='PII')
+            else:
+        os.environ['WANDB_MODE'] = CFG.wandb.mode
+        wandb.login(key=os.getenv('wandb_api_key'))
+        run = wandb.init(project='PII')
+
+    # ===== Hugging Face Hub 설정 =====
+    from huggingface_hub import login, create_repo
+
+    hf_token = os.getenv("HUGGINGFACE_HUB_TOKEN")  # 없으면 huggingface-cli login
+    hf_username = os.getenv("HF_USERNAME")
+    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
+    hf_repo_id = os.getenv("HF_REPO", f"{hf_username}/{default_repo_name}") \
+        if hf_username else os.getenv("HF_REPO", default_repo_name)
+
+     if hf_token:
+        login(token=hf_token)
+
+    try:
+        create_repo(repo_id=hf_repo_id, private=True, exist_ok=True)
+    except Exception as e:
+        print(f"[HF] create_repo warning: {e}")
+        
+    os.environ.pop('TRANSFORMERS_OFFLINE', None)  # 업로드 위해 오프라인 모드 해제
+    tokenizer.save_pretrained(output_dir)
+    trainer.push_to_hub(commit_message="final model upload")
+    print(f"[HF] Pushed to: https://huggingface.co/{hf_repo_id}")
 
     # Directory to save results
     output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
@@ -314,7 +340,11 @@ if __name__ == '__main__':
         load_best_model_at_end=True,
         gradient_checkpointing=CFG.train_args.gradient_checkpointing,
         gradient_checkpointing_kwargs=gradient_checkpointing_kwargs,
-    )
+        push_to_hub=True,
+        hub_model_id=hf_repo_id,
+        hub_private_repo=True,
+        hub_strategy="every_save",
+        )
 
     # # Calculate class weights based on your dataset
     # if CFG.class_weights.apply:
@@ -502,7 +532,6 @@ if __name__ == '__main__':
 
     # Close wandb logger
     wandb.finish()
-
     ############################################
     # Clean up memory
     ############################################
