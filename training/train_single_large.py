@@ -44,7 +44,6 @@ import os
 # os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 # os.environ["TORCH_USE_CUDA_DSA"] = "1"
-os.environ['TRANSFORMERS_OFFLINE'] = '1'
 # os.environ['TOKENIZERS_PARALLELISM'] = 'True'
 os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = 'True'
 
@@ -113,10 +112,13 @@ class CustomTrainer(Trainer):
         return (loss, outputs) if return_outputs else loss
 
 
-ALL_LABELS = ['B-EMAIL', 'B-ID_NUM', 'B-NAME_STUDENT', 'B-PHONE_NUM',
-              'B-STREET_ADDRESS', 'B-URL_PERSONAL', 'B-USERNAME',
-              'I-ID_NUM', 'I-NAME_STUDENT', 'I-PHONE_NUM',
-              'I-STREET_ADDRESS', 'I-URL_PERSONAL', 'O']
+ALL_LABELS = ['B-EMAIL','B-ID_NUM','B-NAME_STUDENT','B-PHONE_NUM',
+              'B-STREET_ADDRESS','B-URL_PERSONAL','B-USERNAME',
+              'I-ID_NUM','I-NAME_STUDENT','I-PHONE_NUM',
+              'I-STREET_ADDRESS','I-URL_PERSONAL','O']  # O는 마지막
+id2label = {i: lab for i, lab in enumerate(ALL_LABELS)}
+label2id = {lab: i for i, lab in id2label.items()}
+
 
 if __name__ == '__main__':
 
@@ -146,20 +148,22 @@ if __name__ == '__main__':
         print(args)
 
     # Load the configuration file
-    CFG = load_cfg(base_dir=Path(args.dir),
-      정
+    CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
+
     from huggingface_hub import HfApi, create_repo  # 반드시 import
     
     # Calculate num train steps
-    num_steps = CFG.train_args.num_train_epochs * len(ds_train)
-    num_steps = num_steps / CFG.train_args.per_device_train_batch_size
-    num_steps = num_steps / CFG.train_args.gradient_accumulation_steps
-    print(f'My Calculated NUM_STEPS: {num_steps:,.2f}')
-    
-    # Step per epoch to eval every 0.2 epochs
-    eval_steps = int(math.ceil((num_steps / CFG.train_args.num_train_epochs) *
-                               CFG.train_args.eval_epoch_fraction))
-    print(f'My Calculated eval_steps: {eval_steps:,}')
+    # ds_train, ds_val 생성 끝난 뒤에:
+    num_steps = int(
+        CFG.train_args.num_train_epochs
+        * len(ds_train)
+        / CFG.train_args.per_device_train_batch_size
+        / CFG.train_args.gradient_accumulation_steps
+    )
+    eval_steps = int(math.ceil(
+        (num_steps / CFG.train_args.num_train_epochs) * CFG.train_args.eval_epoch_fraction
+    ))
+
     
     # Setup WandB (환경변수 키 없이 캐시 로그인)
     try:
@@ -169,67 +173,180 @@ if __name__ == '__main__':
     run = wandb.init(project='PII')
     if CFG.debug:
         run.name = 'junk-debug'
+
+    # ===== Hugging Face 업로드(온라인/오프라인 전환 포함) =====
+    from huggingface_hub import HfApi, create_repo, upload_folder
     
-    # ===== HF: 로그인 캐시로 현재 계정 확인 & 리포 설정 =====
+    # 0) ONLINE 전환 (모델/토크나이저 로드/리포 생성은 네트워크 필요)
+    os.environ.pop('TRANSFORMERS_OFFLINE', None)
+    
+    # 1) 로그인 확인
     api = HfApi()
     try:
-        who = api.whoami()  # 캐시된 로그인 정보 사용
-        username = who.get("name")
-        if not username:
-            raise RuntimeError("no username")
+        who = api.whoami()   # 캐시 토큰 사용
+        username = who.get("name") or who.get("email") or "unknown"
+        print(f"[HF] Logged in as: {username}")
     except Exception as e:
         raise SystemExit("[HF] 먼저 `huggingface-cli login` 하세요.") from e
     
-    default_repo_name = f"{CFG.model.name}-pii-{run.name}".replace('/', '-')
-    # 네 계정이 psh3333 라고 했으니, whoami 결과가 psh3333이어야 정상
-    # repo_id는 '사용자명/리포명'으로 명시하거나, 사용자명 없이 리포명만 써도 현재 로그인 네임스페이스로 생성됨
-    hf_repo_name = default_repo_name  # ← 사용자명 없이
-    # hf_repo_id = f"{username}/{default_repo_name}"  # ← 이렇게 써도 OK
+    # 2) 토크나이저/모델 로드 (아직 OFFLINE 금지)
+    tokenizer = AutoTokenizer.from_pretrained(
+        CFG.model.name,
+        use_fast=True
+    )
+    # ===== 3) JSONL 로드 + 토크나이즈/라벨 정렬 =====
+    from datasets import load_dataset
     
-    # 출력 디렉토리
-    output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
-    output_dir.mkdir(parents=True, exist_ok=True)
-    if run.name == 'junk-debug':
-        os.system(f'rm -rf {str(output_dir)}/*')
-    shutil.copyfile(str(Path(args.dir) / args.name), str(output_dir / args.name))
+    # 학습용 JSONL 경로 (너 저장한 파일 경로로 맞춤)
+    jsonl_path = str(Path(os.getenv('DATA_DIR')) / 'mdd-gen/llama3_placeholder_2.3K_v0.jsonl')
     
-    # 업로드 위해 오프라인 해제 후 리포 생성(있으면 통과)
-    os.environ.pop('TRANSFORMERS_OFFLINE', None)
+    # 단일 파일이면 9:1으로 나눠서 train/val 구성
+    raw_all = load_dataset("json", data_files={"all": jsonl_path})["all"]
+    split = raw_all.train_test_split(test_size=0.1, seed=42)
+    raw_train, raw_val = split["train"], split["test"]
+    
+    def align_labels_with_tokens(batch):
+        # tokens: list[str], labels: list[str] 와 동일 길이 전제
+        tok = tokenizer(
+            batch["tokens"],
+            is_split_into_words=True,
+            truncation=True,
+            padding=False,
+            add_special_tokens=True,
+        )
+        new_labels = []
+        for i, labs in enumerate(batch["labels"]):
+            word_ids = tok.word_ids(batch_index=i)
+            ids = []
+            for wid in word_ids:
+                if wid is None:
+                    ids.append(-100)  # special tokens는 무시
+                else:
+                    # 라벨 문자열을 정수 id로 매핑, 없으면 'O'
+                    ids.append(label2id.get(labs[wid], label2id['O']))
+            new_labels.append(ids)
+        tok["labels"] = new_labels
+        return tok
+    
+    # 모델에不要한 원본 컬럼 제거(남길 컬럼만 유지)
+    keep_cols = {"tokens", "labels"}
+    cols_remove_train = [c for c in raw_train.column_names if c not in keep_cols]
+    cols_remove_val   = [c for c in raw_val.column_names   if c not in keep_cols]
+    
+    ds_train = raw_train.map(
+        align_labels_with_tokens,
+        batched=True,
+        remove_columns=cols_remove_train,
+        desc="Tokenizing train"
+    )
+    ds_val = raw_val.map(
+        align_labels_with_tokens,
+        batched=True,
+        remove_columns=cols_remove_val,
+        desc="Tokenizing val"
+    )
+    # ==== 스텝 계산 (ds_train/ds_val 생성 직후) ====
+    train_size = len(ds_train)
+    bsz = CFG.train_args.per_device_train_batch_size
+    ga  = CFG.train_args.gradient_accumulation_steps
+    nep = CFG.train_args.num_train_epochs
+    frac = getattr(CFG.train_args, "eval_epoch_fraction", 0.2)  # 없으면 0.2 기본값
+    
+    if bsz <= 0 or ga <= 0:
+        raise ValueError("per_device_train_batch_size와 gradient_accumulation_steps는 1 이상이어야 합니다.")
+    
+    # 에폭당 스텝 수
+    steps_per_epoch = math.ceil(train_size / (bsz * ga))
+    
+    # 전체 스텝 수
+    num_steps = int(steps_per_epoch * nep)
+    
+    # 에폭의 frac 비율마다 평가
+    eval_steps = max(1, int(math.ceil(steps_per_epoch * frac)))
+    
+    print(f"Train size: {train_size:,}")
+    print(f"Steps/epoch: {steps_per_epoch:,}")
+    print(f"My Calculated NUM_STEPS: {num_steps:,}")
+    print(f"My Calculated eval_steps: {eval_steps:,}")
+
+    
+    # 안전 가드
+    if len(ds_train) == 0 or len(ds_val) == 0:
+        raise ValueError("Empty train/val dataset after tokenization. Check JSONL path and columns.")
+
+    
+    model = AutoModelForTokenClassification.from_pretrained(
+        CFG.model.name, num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id
+    )
+    
+    # 콜레이터
+    collator = DataCollatorForTokenClassification(tokenizer)
+   
+    # 3) 리포 생성(이미 있으면 통과)
     try:
         create_repo(repo_id=hf_repo_name, private=True, exist_ok=True)
+        print(f"[HF] Repo ready: {hf_repo_name}")
     except Exception as e:
         print(f"[HF] create_repo warning: {e}")
     
-    # 토크나이저 로컬 저장
+    # 4) 로컬 저장 (출력 디렉토리 준비)
+    output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
+    output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer.save_pretrained(output_dir)
+    model.save_pretrained(output_dir)
+    print(f"[LOCAL] Saved tokenizer & model at: {str(output_dir)}")
+    
+    # 5) Hub 업로드 (git-lfs 자동, 대용량 파일 처리)
+    #    - repo_id 에 사용자명 생략 가능(현재 로그인 네임스페이스로 업로드)
+    try:
+        upload_folder(
+            repo_id=hf_repo_name,
+            folder_path=str(output_dir),
+            path_in_repo=".",                  # 루트에 업로드
+            commit_message="upload tokenizer & model artifacts",
+            private=True,
+            ignore_patterns=["*.pt", "*.bin.tmp", "**/__pycache__/**"]
+        )
+        print(f"[HF] Uploaded to: https://huggingface.co/{who.get('name', username)}/{hf_repo_name}")
+    except Exception as e:
+        print(f"[HF] upload_folder warning: {e}")
+    
+    # 6) (선택) 학습 중엔 네트워크 차단하고 싶으면 다시 OFFLINE
+    os.environ['TRANSFORMERS_OFFLINE'] = '1'
+
     
     # ↓↓↓ TrainingArguments는 v5 기준으로 eval_strategy 사용, 학습 중 push는 끈다(자동 create_repo 방지)
     gradient_checkpointing_kwargs = {'use_reentrant': CFG.train_args.use_reentrant}
     args = TrainingArguments(
         output_dir=str(output_dir),
-        fp16=CFG.train_args.fp16,
+    
+        # A40 기본은 fp16; bf16 지원되면 bf16로 전환(동시에 둘 다 True 금지)
+        fp16=not use_bf16,
+        bf16=use_bf16,
+    
         learning_rate=CFG.train_args.learning_rate,
         num_train_epochs=CFG.train_args.num_train_epochs,
         per_device_train_batch_size=CFG.train_args.per_device_train_batch_size,
         gradient_accumulation_steps=CFG.train_args.gradient_accumulation_steps,
         per_device_eval_batch_size=CFG.train_args.per_device_train_batch_size,
+    
         report_to="wandb",
-        eval_strategy="steps",           # ← evaluation_strategy 아님
-        save_total_limit=2,
+        eval_strategy="steps",
+        evaluation_strategy="steps",
         logging_steps=eval_steps,
         save_steps=eval_steps,
+        save_total_limit=2,
+    
         lr_scheduler_type=CFG.train_args.lr_scheduler_type,
         metric_for_best_model=CFG.train_args.metric_for_best_model,
         greater_is_better=CFG.train_args.greater_is_better,
         warmup_ratio=CFG.train_args.warmup_ratio,
         weight_decay=CFG.train_args.weight_decay,
+    
         load_best_model_at_end=True,
         gradient_checkpointing=CFG.train_args.gradient_checkpointing,
-        gradient_checkpointing_kwargs=gradient_checkpointing_kwargs,
-    
-        push_to_hub=False,               # ← 학습 중 자동 업로드/리포생성 막기
+        push_to_hub=False,
     )
-    
     class_weights = None
     if CFG.class_weights.apply or CFG.focal_loss.apply:
         trainer = CustomTrainer(
