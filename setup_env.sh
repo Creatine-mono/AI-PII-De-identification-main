@@ -54,19 +54,22 @@ source pii-env/bin/activate
 # 2. pip 최신화
 pip install --upgrade pip
 
-# 3. CUDA 12.1 지원 PyTorch 설치
+# 2. CUDA 12.1 지원 PyTorch
 pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
-
-# 4. 필수 패키지 설치
+# 3. 기존 프로젝트 기본 패키지
 pip install transformers pandas tqdm numpy faker
-
 pip install text_unidecode
-
 pip install datasets
-
 pip install spacy
-
 pip install seqeval
+# 4. 추가로 필요한 패키지
+pip install sentencepiece           # DeBERTa 토크나이저에 필수
+pip install accelerate              # Trainer/분산학습 최적화
+pip install huggingface_hub          # HF 모델 업로드/다운로드
+pip install evaluate                 # metrics 모듈
+pip install tokenizers==0.19.1       # 최신 토크나이저 버전 고정
+pip install bitsandbytes             # 메모리 절감(8bit/4bit)
+pip install python-dotenv            # 환경변수 로딩
 
 # 5. 환경 변수 설정
 export CUDA_VISIBLE_DEVICES=0
