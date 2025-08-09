@@ -210,9 +210,21 @@ if __name__ == '__main__':
     # 로드 후 분할
     ds_dict = load_dataset("json", data_files={"data": jsonl_path})
     raw_all = ds_dict["data"]
+    n = len(raw_all)
+    print(f"Loaded {n} examples")
     
-    split = raw_all.train_test_split(test_size=0.1, seed=42)
-    raw_train, raw_val = split["train"], split["test"]
+    if n >= 10:
+        split = raw_all.train_test_split(test_size=0.1, seed=42)
+        raw_train, raw_val = split["train"], split["test"]
+    elif n >= 2:
+        # 검증을 최소 1개 샘플로 확보
+        split = raw_all.train_test_split(test_size=1, seed=42)  # 1샘플을 검증으로
+        raw_train, raw_val = split["train"], split["test"]
+    else:
+        # 샘플이 1개 이하이면 검증은 비우고 학습만
+        raw_train = raw_all
+        raw_val = raw_all.select([])  # empty dataset
+
     
     def align_labels_with_tokens(batch):
         # tokens: list[str], labels: list[str] 와 동일 길이 전제
