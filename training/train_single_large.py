@@ -24,7 +24,6 @@ import math
 import shutil
 import pandas as pd
 import numpy as np
-import torch
 from transformers.models.deberta_v2 import DebertaV2ForTokenClassification, DebertaV2TokenizerFast
 from transformers import AutoTokenizer, Trainer, TrainingArguments
 from transformers import AutoModelForTokenClassification, DataCollatorForTokenClassification
@@ -38,6 +37,8 @@ from tokenizers import AddedToken
 from huggingface_hub import HfApi, create_repo, upload_folder
 import torch.nn as nn
 import torch.nn.functional as F
+import random
+import torch
 from types import SimpleNamespace
 import copy
 import gc
@@ -148,6 +149,12 @@ if __name__ == '__main__':
                             help="File name of YAML config. file")
         args = parser.parse_args()
         print(args)
+
+    def seed_everything_local(seed=42):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
     # Load the configuration file
     CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
