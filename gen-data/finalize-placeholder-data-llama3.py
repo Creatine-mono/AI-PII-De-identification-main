@@ -24,7 +24,7 @@ random.seed(42)
 if __name__ == '__main__':
     # Inputs
     save_path = Path(os.getenv('DATA_DIR')) / \
-        'mdd-gen/llama3_placeholder_2.3K_v0.json'
+        'mdd-gen/llama3_placeholder_2.3K_v0.jsonl'
     pii_data_path = Path(os.getenv('GEN_DIR')) / 'pii_syn_data.csv'
     SPLIT_PERCENT = 1.0
     THRESHOLD = 0.70
@@ -36,8 +36,6 @@ if __name__ == '__main__':
 
     # Load data
     df = pd.concat([
-        pd.read_csv(path_data / 'placeholder/output.csv',
-                    encoding='UTF-8'),
         pd.read_csv(path_data / 'placeholder/output.csv',
                     encoding='UTF-8'),
     ],
@@ -81,11 +79,29 @@ if __name__ == '__main__':
                            'ID_NUM': 'IDENTIFICATION_NUM'},
                   inplace=True)
     df_pii = df_pii[pii_placeholders]
+    
+    available = [c for c in pii_placeholders if c in df_pii.columns]
+    missing   = [c for c in pii_placeholders if c not in df_pii.columns]
+    if missing:
+        print(f"[WARN] Missing PII columns: {missing}")
+    if not available:
+        raise ValueError("No valid PII columns found in df_pii matching placeholders.")
+    pii_placeholders = available
+    df_pii = df_pii[pii_placeholders].reset_index(drop=True)
+
+    # 2) 전부 문자열화 + 결측치 대체(모델이 문자열 넣는 전제)
+    df_pii = df_pii.fillna("").astype(str)
+
+    # 3) 샘플 수 부족 시 안전 접근용 helper (순환 인덱싱)
+    def get_pii_row(ii: int):
+        if len(df_pii) == 0:
+            raise ValueError("df_pii is empty after filtering placeholders.")
+        return df_pii.iloc[ii % len(df_pii)]
 
     # Insert PII into Full Text
     df_final = None
     for ii in range(len(df)):
-        gen, pii = df.iloc[[ii]], df_pii.iloc[ii]
+        gen, pii = df.iloc[[ii]], get_pii_row(ii)
         gen = gen.reset_index(drop=True)
         gen_explode = gen.copy().explode(
             ['tokens', 'trailing_whitespace']).reset_index(drop=True)
@@ -148,8 +164,13 @@ if __name__ == '__main__':
     print(f'df_final.shape: {df_final.shape}')
 
     # Save to disk
+    # 변경 (레코드 지향 + 줄단위 + 한글 그대로)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    df_final.to_json(save_path)
-    print(f'Saved at:\n{save_path}')
+    df_final[['document','full_text','tokens','trailing_whitespace','labels']].to_json(
+        save_path,
+        orient='records',
+        lines=True,
+        force_ascii=False
+    )
 
     print('End of Script - Completed')
