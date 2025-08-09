@@ -273,6 +273,9 @@ if __name__ == '__main__':
         model_id,     # ← CFG.model.name  → model_id
         num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id, use_safetensors=True 
     )
+    
+    model.config.use_cache = False
+    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
         
     # 학습용 JSONL 경로
     jsonl_path = str(Path(os.getenv('DATA_DIR')) / 'mdd-gen/llama3_placeholder_2.3K_v0.jsonl')
