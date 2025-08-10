@@ -383,7 +383,7 @@ if __name__ == '__main__':
         logging_strategy="steps",                   # "no"에서 "steps"로 변경
         logging_steps=1,                           # 10 스텝마다 로그를 기록하도록 설정
     
-        report_to=["wandb", "tensorboard"],         # 이 설정은 이제 정상적으로 작동합니다.
+        report_to=["wandb"],         # 이 설정은 이제 정상적으로 작동합니다.
         
         # eval이나 save를 원치 않으면 "no"로 유지
         eval_strategy="no",
