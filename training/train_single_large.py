@@ -361,22 +361,27 @@ if __name__ == '__main__':
     gradient_checkpointing_kwargs = {'use_reentrant': getattr(CFG.train_args, 'use_reentrant', False)}
     
     args = TrainingArguments(
-        output_dir=str(output_dir),
-        per_device_train_batch_size=1,      # 무조건 1
-        gradient_accumulation_steps=1,      # 무조건 1
+        output_dir="./results",                     # output_dir은 하나만 지정해야 합니다.
+        per_device_train_batch_size=1,
+        gradient_accumulation_steps=1,
         num_train_epochs=CFG.train_args.num_train_epochs,
-         output_dir="./results",                   # 결과물과 로그가 저장될 로컬 폴더
         hub_model_id="psh3333/microsoft-deberta-v3-large-pii-drawn-jazz-39",
+    
+        # --- 수정할 부분 ---
+        logging_strategy="steps",                   # "no"에서 "steps"로 변경
+        logging_steps=10,                           # 10 스텝마다 로그를 기록하도록 설정
+    
+        report_to=["wandb", "tensorboard"],         # 이 설정은 이제 정상적으로 작동합니다.
+        
+        # eval이나 save를 원치 않으면 "no"로 유지
         eval_strategy="no",
-        save_strategy="no",
-        logging_strategy="no",
-        report_to=["wandb", "tensorboard"],
+        save_strategy="no",                         
+    
+        # --- 나머지 옵션들 ---
         load_best_model_at_end=False,
         weight_decay=0.0,
         warmup_ratio=0.0,
-        # 메모리 절약 옵션
-        fp16=True,                          # GPU가 fp16 지원 시
-        bf16=False,                         # 둘 중 하나만 True
+        fp16=True,
         gradient_checkpointing=False,
         push_to_hub=True,
     )
