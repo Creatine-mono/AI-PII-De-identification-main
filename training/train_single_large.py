@@ -162,6 +162,10 @@ if __name__ == '__main__':
     CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
     pl_seed(getattr(CFG, "seed", 42))
     
+    # --------- WandB ----------
+    run = wandb.init(project="PII", name="debug-"+os.environ.get("HOSTNAME","local"), reinit=True)
+    # --------------------------
+        
     # Setup WandB (환경변수 키 없이 캐시 로그인)
     try:
         wandb.login(relogin=False)  # 이미 로그인돼 있으면 패스
@@ -184,15 +188,23 @@ if __name__ == '__main__':
     
     # 1) 로그인 확인
     api = HfApi()
-    try:
-        who = api.whoami()   # 캐시 토큰 사용
-        username = who.get("name") or who.get("email") or "unknown"
-        print(f"[HF] Logged in as: {username}")
-    except Exception as e:
-        raise SystemExit("[HF] 먼저 `huggingface-cli login` 하세요.") from e
+    who = api.whoami()
+    username = who.get("name") or who.get("email") or "unknown"
+    print(f"[HF] Logged in as: {username}")
     
+    # ---- HF repo (여기 교체/추가) ----
     default_repo_name = f"{model_id}-pii-{run.name}".replace('/', '-')
-    hf_repo_name = default_repo_name
+    hf_repo_name = f"{username}/{default_repo_name}"
+    
+    # repo를 미리 만들어두기 (없으면 생성, 있으면 통과)
+    create_repo(
+        repo_id=hf_repo_name,
+        private=True,
+        exist_ok=True,
+        repo_type="model",
+    )
+    print("[HF] Repo ready:", hf_repo_name)
+    # ----------------------------------
     
     # fast 토크나이저 권장 (word_ids() 필요)
     tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
@@ -369,7 +381,7 @@ if __name__ == '__main__':
     
         # --- 수정할 부분 ---
         logging_strategy="steps",                   # "no"에서 "steps"로 변경
-        logging_steps=10,                           # 10 스텝마다 로그를 기록하도록 설정
+        logging_steps=1,                           # 10 스텝마다 로그를 기록하도록 설정
     
         report_to=["wandb", "tensorboard"],         # 이 설정은 이제 정상적으로 작동합니다.
         
@@ -381,9 +393,10 @@ if __name__ == '__main__':
         load_best_model_at_end=False,
         weight_decay=0.0,
         warmup_ratio=0.0,
-        fp16=True,
+        fp16=False,
         gradient_checkpointing=False,
         push_to_hub=True,
+        hub_model_id=hf_repo_name,
     )
 
     class_weights = None
@@ -406,6 +419,15 @@ if __name__ == '__main__':
     
     # 학습
     trainer.train()
+
+
+    class DebugWandbCallback(TrainerCallback):
+        def on_log(self, args, state, control, logs=None, **kwargs):
+            if logs:
+                import wandb
+                wandb.log(logs, step=state.global_step)
+    
+    trainer.add_callback(DebugWandbCallback())
     
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
@@ -415,7 +437,6 @@ if __name__ == '__main__':
     # 학습 종료 후, 현재 로그인된 psh3333 네임스페이스로 수동 push
     trainer.push_to_hub(
         repo_id=hf_repo_name,     # 사용자명 없이 → 로그인 계정(psh3333) 네임스페이스
-        private=True,
         commit_message="final model upload",
     )
     print(f"[HF] Pushed to: https://huggingface.co/{username}/{hf_repo_name}")
