@@ -24,7 +24,6 @@ import math
 import shutil
 import pandas as pd
 import numpy as np
-from transformers.models.deberta_v2 import DebertaV2ForTokenClassification, DebertaV2TokenizerFast
 from transformers import AutoTokenizer, Trainer, TrainingArguments
 from transformers import AutoModelForTokenClassification, DataCollatorForTokenClassification, TrainerCallback
 from datasets import Dataset, features, concatenate_datasets
@@ -162,25 +161,44 @@ if __name__ == '__main__':
     CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
     pl_seed(getattr(CFG, "seed", 42))
     
-    # --------- WandB ----------
-    run = wandb.init(project="PII", name="debug-"+os.environ.get("HOSTNAME","local"), reinit=True)
-    # --------------------------
-        
-    # Setup WandB (환경변수 키 없이 캐시 로그인)
+    # --- 수정 후 ---
+    # 스크립트 상단에서 딱 한 번만 호출합니다.
     try:
-        wandb.login(relogin=False)  # 이미 로그인돼 있으면 패스
+        # wandb.login()은 터미널에서 미리 실행해두는 것을 권장합니다.
+        # 코드에 포함할 경우, API 키를 스크립트에 노출하지 않도록 주의해야 합니다.
+        wandb.login(relogin=False) 
     except Exception as e:
-        print("[W&B] 먼저 터미널에서 `wandb login` 실행이 필요합니다:", e)
-    run = wandb.init(project='PII')
-    if CFG.debug:
-        run.name = 'junk-debug'
+        print(f"[W&B] W&B login failed: {e}. Please run 'wandb login' in your terminal.")
+    
+    # run 이름을 지정하여 명확하게 관리합니다.
+    run_name = f"{CFG.model.name.replace('/', '-')}-{pd.Timestamp.now().strftime('%Y%m%d-%H%M')}"
+    run = wandb.init(
+        project="PII-Detection-Korean",  # 프로젝트 이름
+        name=run_name,                   # 실행 이름
+        config=vars(CFG)                 # CFG 설정을 함께 기록
+    )
+    print(f"✅ WandB run initialized: {run.name}")
+    
+    # TrainingArguments에서 `report_to=["wandb"]`가 설정되어 있으므로
+    # DebugWandbCallback은 불필요합니다. [cite: 19] 해당 클래스 정의와 add_callback 호출을 삭제하세요.
+    # class DebugWandbCallback(TrainerCallback): ...
+    # trainer.add_callback(DebugWandbCallback())'
 
-    model_id = getattr(CFG.model, "name", None)
-    if not model_id:
-        raise ValueError("CFG.model.name이 비어있습니다. YAML에서 model.name을 설정하세요.")
-    # 잘못된 축약형이면 보정
-    if model_id == "deberta-v3-large":
-        model_id = "microsoft/deberta-v3-large"
+    # YAML 설정 대신 직접 모델 ID를 지정하거나, YAML 파일의 model.name을 "klue/roberta-large"로 변경합니다.
+    model_id = "klue/roberta-large" 
+    print(f"✅ Using Korean-specific model: {model_id}")
+    
+    # AutoTokenizer와 AutoModelForTokenClassification이 model_id를 기반으로
+    # 올바른 클래스를 자동으로 로드하므로 추가 변경이 필요 없습니다. [cite: 103]
+    tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+    
+    model = AutoModelForTokenClassification.from_pretrained(
+        model_id,
+        num_labels=len(ALL_LABELS), 
+        id2label=id2label, 
+        label2id=label2id, 
+        use_safetensors=True 
+    )
 
 
    # 0) ONLINE 전환 (모델/토크나이저 로드/리포 생성은 네트워크 필요)
@@ -203,7 +221,7 @@ if __name__ == '__main__':
         exist_ok=True,
         repo_type="model",
     )
-    print("[HF] Repo ready:", hf_repo_name)
+    print(f" Hugging Face repo ready: {hf_repo_id}")    
     # ----------------------------------
     
     # fast 토크나이저 권장 (word_ids() 필요)
@@ -308,6 +326,7 @@ if __name__ == '__main__':
         remove_columns=[c for c in raw_train.column_names if c not in {"tokens", "labels"}],
         desc="Tokenizing train"
     )
+    
         
     # ==== 스텝 계산 (ds_train/ds_val 생성 직후) ====
     train_size = len(ds_train)
@@ -373,11 +392,11 @@ if __name__ == '__main__':
     gradient_checkpointing_kwargs = {'use_reentrant': getattr(CFG.train_args, 'use_reentrant', False)}
     
     args = TrainingArguments(
-        output_dir="./results",                     # output_dir은 하나만 지정해야 합니다.
+        output_dir=f"./results/{run.name}",                     # output_dir은 하나만 지정해야 합니다.
         per_device_train_batch_size=1,
         gradient_accumulation_steps=1,
         num_train_epochs=CFG.train_args.num_train_epochs,
-        hub_model_id="psh3333/microsoft-deberta-v3-large-pii-drawn-jazz-39",
+        hub_model_id=hf_repo_id,
     
         # --- 수정할 부분 ---
         logging_strategy="steps",                   # "no"에서 "steps"로 변경
@@ -439,42 +458,6 @@ if __name__ == '__main__':
         commit_message="final model upload",
     )
     print(f"[HF] Pushed to: https://huggingface.co/{username}/{hf_repo_name}")
-
-    ############################################
-    # Log Metrics to WandB
-    ############################################
-    # Trainer optimal checkpoint steps
-    best_ckpt = trainer.state.best_model_checkpoint
-    best_val_metric = trainer.state.best_metric
-    print(f'Best CKPT: {best_ckpt}')
-    print(f'best_val_metric: {best_val_metric}')
-
-    # Log F5 score for holdout
-    run.log({'best_ckpt': best_ckpt,
-             'best_val_metric': best_val_metric})
-
-    # Num. steps for best checkpoint
-    log_hist = copy.deepcopy(trainer.state.log_history)
-    metric_name = f'eval_{CFG.train_args.metric_for_best_model}'
-    optimal_steps = None
-    for log_ in log_hist:
-        for key, value in log_.items():
-            if key == metric_name and value == best_val_metric:
-                optimal_steps = log_['step']
-    assert optimal_steps is not None, 'Error in Finding Optimal Steps'
-    print(f'Optimal Steps: {optimal_steps:,}')
-    print(f'trainer.state.max_steps: {trainer.state.max_steps:,}')
-    del log_hist, metric_name, log_, key, value
-    _ = gc.collect()
-
-    # Final wandb log
-    run.log({
-        'optimal_steps_post': optimal_steps,
-        'class_weights_approach': getattr(CFG.class_weights, 'approach', 'none'),
-        'dataset_name': jsonl_path,           
-        'model_name': CFG.model.name,
-        'max_steps_post': trainer.state.max_steps
-    })
 
     # Close wandb logger
     wandb.finish()
