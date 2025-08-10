@@ -363,7 +363,7 @@ if __name__ == '__main__':
     args = TrainingArguments(
         output_dir=str(output_dir),
         per_device_train_batch_size=1,      # 무조건 1
-        gradient_accumulation_steps=False,      # 무조건 1
+        gradient_accumulation_steps=1,      # 무조건 1
         num_train_epochs=CFG.train_args.num_train_epochs,
     
         eval_strategy="no",
@@ -376,8 +376,8 @@ if __name__ == '__main__':
         warmup_ratio=0.0,
     
         # 메모리 절약 옵션
-        fp16=False,                          # GPU가 fp16 지원 시
-        bf16=True,                         # 둘 중 하나만 True
+        fp16=Ture,                          # GPU가 fp16 지원 시
+        bf16=False,                         # 둘 중 하나만 True
         gradient_checkpointing=False,
         
         push_to_hub=False,
