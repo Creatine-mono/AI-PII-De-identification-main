@@ -98,7 +98,7 @@ class CustomTrainer(Trainer):
         self.use_focal = use_focal
         self.class_weights = class_weights
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
         labels = inputs.pop("labels")
         outputs = model(**inputs)
         logits = outputs.logits  # (B, L, C)
