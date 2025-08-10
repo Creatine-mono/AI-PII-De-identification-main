@@ -396,7 +396,6 @@ if __name__ == '__main__':
         fp16=False,
         gradient_checkpointing=False,
         push_to_hub=True,
-        hub_model_id=hf_repo_name,
     )
 
     class_weights = None
