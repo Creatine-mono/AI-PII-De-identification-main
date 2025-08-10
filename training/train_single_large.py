@@ -365,22 +365,20 @@ if __name__ == '__main__':
         per_device_train_batch_size=1,      # 무조건 1
         gradient_accumulation_steps=1,      # 무조건 1
         num_train_epochs=CFG.train_args.num_train_epochs,
-    
+         output_dir="./results",                   # 결과물과 로그가 저장될 로컬 폴더
+        hub_model_id="psh3333/microsoft-deberta-v3-large-pii-drawn-jazz-39",
         eval_strategy="no",
         save_strategy="no",
         logging_strategy="no",
-        report_to=[],
+        report_to=["wandb", "tensorboard"],
         load_best_model_at_end=False,
-    
         weight_decay=0.0,
         warmup_ratio=0.0,
-    
         # 메모리 절약 옵션
         fp16=True,                          # GPU가 fp16 지원 시
         bf16=False,                         # 둘 중 하나만 True
         gradient_checkpointing=False,
-        
-        push_to_hub=False,
+        push_to_hub=True,
     )
 
     class_weights = None
