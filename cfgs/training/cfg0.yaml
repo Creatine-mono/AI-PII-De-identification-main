@@ -1,34 +1,24 @@
 ##############################################
-# Fine-tuning Encoder Model
+# Fine-tuning Encoder Model for Korean NER
 ##############################################
 
 # Paths
 paths:
   data:
-    # Select datasets for training by uncommenting
-    train:
-      - mdd-pii-detection-removal-from-educational-data/train_f0.json
-      # - mdd-gen/mdd_Mistral-7x8B-Instruct-v0.1_3.2K.json
-      # - mdd-gen/MixtralQ5_placeholder_pii_mimic_training_3.6K_v9.json
-      # - mdd-gen/llama3_placeholder_2.3K_v0.json
-      # - vw-output/moredata_dataset_fixed.json
-      # - vw-output/pii_dataset_fixed.json
-      # - mixtral-original-prompt/Fake_data_1850_218.json
-      # - pii-dd-mistral-generated/mixtral-8x7b-v1.json
-      - pii-mixtral8x7b-generated-essays/mpware_mixtral8x7b_v1.1-no-i-username.json
-      # - pii-detect-gpt3-5-synthetic-data-8k/mdd_PII_Detect_GPT3.5_Generated_data_v1.json
-    val: mdd-pii-detection-removal-from-educational-data/val_f0.json
+    # 파이썬 스크립트에서 직접 경로를 지정하므로 이 부분은 참고용으로 두거나,
+    # 스크립트에서 이 값을 읽어오도록 수정할 수 있습니다.
+    # 현재 스크립트는 아래 경로를 사용하지 않습니다.
+    source_file: mdd-gen/llama3_placeholder_2.3K_v0.jsonl
 
 # Saving models and results
-  save_results:
-    model_results: False # Save model weights [boolean: True/False]
-    wandb_online: True # Save performance metrics to wandb online [boolean: True/False]
+save_results:
+  model_results: True # 학습된 모델 가중치를 저장합니다.
+  wandb_online: True  # W&B 온라인 로깅을 사용합니다.
 
-# DEBUG [True or False]; if False it will load the debug_data
-# Use for pipeline development
+# DEBUG [True or False]
 debug: False
 
-# Data processing
+# Data processing (현재 스크립트에서 사용되지 않음)
 data:
   split: False
   ds_factor: Null
@@ -39,10 +29,10 @@ wandb:
 
 # Model and tokenizer
 model:
-  name: microsoft/deberta-v3-large
+  name: klue/roberta-large 
   freeze:
-    apply: True
-    num_layers: 6
+    apply: False         
+    num_layers: 0         
 
 # Trainer arguments
 train_args:
@@ -54,8 +44,8 @@ train_args:
   gradient_checkpointing: False
   use_reentrant: False
   eval_epoch_fraction: 0.1
-  warmup_ratio: 0.0
-  weight_decay: 0.0
+  warmup_ratio: 0.1 
+  weight_decay: 0.01 
   metric_for_best_model: f1
   greater_is_better: True
   lr_scheduler_type: 'linear'
@@ -66,17 +56,17 @@ tokenizer:
   do_lower: False
   use_fast: True
   pad_to_multiple_of: 16
-  max_token_length: 1024
+  max_token_length: 256 
   stride: 16
 
 # Adjust class weights
 class_weights:
-  apply: True
-  approach: mean  # mean or absolute or fixed
+  apply: True       
+  approach: mean
   multiplier: 0.25
 
 # Focal Loss
 focal_loss:
-  apply: False
+  apply: False      
   alpha: 0.5
   gamma: 2
