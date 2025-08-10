@@ -1,544 +1,318 @@
-# Setup Env. Variables
-import sys
-import os
-from pathlib import Path
-
-# Add project root to Python path for package imports
-project_root = Path(__file__).parent.parent
-if str(project_root) not in sys.path:
-    sys.path.insert(0, str(project_root))
-
-from src.cxmetrics import train_metrics
-from src.cxmetrics import compute_metrics
-from src.utils import (load_cfg,
-                      debugger_is_active,
-                      seed_everything)
-from src.load_data import LoadData
-import src.create_datasets as create_datasets
-from pathlib import Path
-import json
-import argparse
-from itertools import chain
-from functools import partial
-import math
-import shutil
-import pandas as pd
-import numpy as np
-from transformers import AutoTokenizer, Trainer, TrainingArguments
-from transformers import AutoModelForTokenClassification, DataCollatorForTokenClassification, TrainerCallback
-from datasets import Dataset, features, concatenate_datasets
-import wandb
-from scipy.special import softmax
-from sklearn.utils.class_weight import compute_class_weight
-from datasets import load_dataset
-from torch.nn import CrossEntropyLoss
-from tokenizers import AddedToken
-from huggingface_hub import HfApi, create_repo, upload_folder
-import torch.nn as nn
-import torch.nn.functional as F
-import random
-import torch
-from types import SimpleNamespace
-from pytorch_lightning import seed_everything as pl_seed
-import copy
-import gc
-import sys
-import os
-# os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-# os.environ["TORCH_USE_CUDA_DSA"] = "1"
-# os.environ['TOKENIZERS_PARALLELISM'] = 'True'
-os.environ["TRANSFORMERS_NO_TORCHVISION"] = "1"
-os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = 'True'
-
-# Do NOT log models to WandB
-os.environ["WANDB_LOG_MODEL"] = "false"
-
-# turn off watch to log faster
-os.environ["WANDB_WATCH"] = "false"
-
-
-# Custom (cx) modules
-
-
-class FocalLoss(nn.Module):
-    def __init__(self, alpha=1, gamma=2, reduction='mean'):
-        super(FocalLoss, self).__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-
-    def forward(self, inputs, targets):
-        # BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
-        BCE_loss = F.cross_entropy(inputs, targets, reduction='none')
-
-        pt = torch.exp(-BCE_loss)
-        F_loss = self.alpha * (1 - pt)**self.gamma * BCE_loss
-
-        if self.reduction == 'mean':
-            return torch.mean(F_loss)
-        elif self.reduction == 'sum':
-            return torch.sum(F_loss)
-        else:
-            return F_loss
-
-
-class CustomTrainer(Trainer):
-    def __init__(
-            self,
-            focal_loss_info: SimpleNamespace,
-            *args,
-            class_weights=None,
-            **kwargs):
-        super().__init__(*args, **kwargs)
-        # Assuming class_weights is a Tensor of weights for each class
-        self.class_weights = class_weights
-        self.focal_loss_info = focal_loss_info
-
-    def compute_loss(self, model, inputs, return_outputs=False):
-        # Extract labels
-        labels = inputs.pop("labels")
-        # Forward pass
-        outputs = model(**inputs)
-        logits = outputs.logits
-        # Reshape for loss calculation
-        if self.focal_loss_info.apply:
-            loss_fct = FocalLoss(alpha=5, gamma=2, reduction='mean')
-            loss = loss_fct(logits.view(-1, self.model.config.num_labels),
-                            labels.view(-1))
-        else:
-            loss_fct = CrossEntropyLoss(weight=self.class_weights)
-            if self.label_smoother is not None and "labels" in inputs:
-                loss = self.label_smoother(outputs, inputs)
+    # Setup Env. Variables
+    import sys
+    import os
+    from pathlib import Path
+    
+    # Add project root to Python path for package imports
+    project_root = Path(__file__).parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    
+    from src.cxmetrics import train_metrics
+    from src.cxmetrics import compute_metrics
+    from src.utils import (load_cfg,
+                          debugger_is_active,
+                          seed_everything)
+    from src.load_data import LoadData
+    import src.create_datasets as create_datasets
+    from pathlib import Path
+    import json
+    import argparse
+    from itertools import chain
+    from functools import partial
+    import math
+    import shutil
+    import pandas as pd
+    import numpy as np
+    from transformers import AutoTokenizer, Trainer, TrainingArguments
+    from transformers import AutoModelForTokenClassification, DataCollatorForTokenClassification, TrainerCallback
+    from datasets import Dataset, features, concatenate_datasets
+    import wandb
+    from scipy.special import softmax
+    from sklearn.utils.class_weight import compute_class_weight
+    from datasets import load_dataset
+    from torch.nn import CrossEntropyLoss
+    from tokenizers import AddedToken
+    from huggingface_hub import HfApi, create_repo, upload_folder
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import random
+    import torch
+    from types import SimpleNamespace
+    from pytorch_lightning import seed_everything as pl_seed
+    import copy
+    import gc
+    import sys
+    import os
+    # os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    # os.environ["TORCH_USE_CUDA_DSA"] = "1"
+    # os.environ['TOKENIZERS_PARALLELISM'] = 'True'
+    os.environ["TRANSFORMERS_NO_TORCHVISION"] = "1"
+    os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = 'True'
+    
+    # Do NOT log models to WandB
+    os.environ["WANDB_LOG_MODEL"] = "false"
+    
+    # turn off watch to log faster
+    os.environ["WANDB_WATCH"] = "false"
+    
+    
+    # Custom (cx) modules
+    
+    
+    class FocalLoss(nn.Module):
+        def __init__(self, alpha=1, gamma=2, reduction='mean'):
+            super(FocalLoss, self).__init__()
+            self.alpha = alpha
+            self.gamma = gamma
+            self.reduction = reduction
+    
+        def forward(self, inputs, targets):
+            # BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction='none')
+            BCE_loss = F.cross_entropy(inputs, targets, reduction='none')
+    
+            pt = torch.exp(-BCE_loss)
+            F_loss = self.alpha * (1 - pt)**self.gamma * BCE_loss
+    
+            if self.reduction == 'mean':
+                return torch.mean(F_loss)
+            elif self.reduction == 'sum':
+                return torch.sum(F_loss)
             else:
+                return F_loss
+    
+    
+    class CustomTrainer(Trainer):
+        def __init__(
+                self,
+                focal_loss_info: SimpleNamespace,
+                *args,
+                class_weights=None,
+                **kwargs):
+            super().__init__(*args, **kwargs)
+            # Assuming class_weights is a Tensor of weights for each class
+            self.class_weights = class_weights
+            self.focal_loss_info = focal_loss_info
+    
+        def compute_loss(self, model, inputs, return_outputs=False):
+            # Extract labels
+            labels = inputs.pop("labels")
+            # Forward pass
+            outputs = model(**inputs)
+            logits = outputs.logits
+            # Reshape for loss calculation
+            if self.focal_loss_info.apply:
+                loss_fct = FocalLoss(alpha=5, gamma=2, reduction='mean')
                 loss = loss_fct(logits.view(-1, self.model.config.num_labels),
                                 labels.view(-1))
-        return (loss, outputs) if return_outputs else loss
-
-
-ALL_LABELS = ['B-EMAIL','B-ID_NUM','B-NAME_STUDENT','B-PHONE_NUM',
-              'B-STREET_ADDRESS','B-URL_PERSONAL','B-USERNAME',
-              'I-ID_NUM','I-NAME_STUDENT','I-PHONE_NUM',
-              'I-STREET_ADDRESS','I-URL_PERSONAL','O']  # O는 마지막
-id2label = {i: lab for i, lab in enumerate(ALL_LABELS)}
-label2id = {lab: i for i, lab in id2label.items()}
-
-
-if __name__ == '__main__':
-
-    # Determine if running in debug mode
-    # If in debug manually point to CFG file
-    is_debugger = debugger_is_active()
-
-    # Construct the argument parser and parse the arguments
-    if is_debugger:
-        args = argparse.Namespace()
-        args.dir = os.getenv('BASE_DIR') + '/cfgs/single-gpu'
-        args.name = 'cfg1.yaml'
-    else:
-        arg_desc = '''This program points to input parameters for model training'''
-        parser = argparse.ArgumentParser(
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-            description=arg_desc)
-        parser.add_argument("-cfg_dir",
-                            "--dir",
-                            required=True,
-                            help="Base Dir. for the YAML config. file")
-        parser.add_argument("-cfg_filename",
-                            "--name",
-                            required=True,
-                            help="File name of YAML config. file")
-        args = parser.parse_args()
-        print(args)
-
-    def seed_everything_local(seed=42):
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-
-    # Load the configuration file
-    CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
-    pl_seed(getattr(CFG, "seed", 42))
-    
-    # --- 수정 후 ---
-    # 스크립트 상단에서 딱 한 번만 호출합니다.
-    try:
-        # wandb.login()은 터미널에서 미리 실행해두는 것을 권장합니다.
-        # 코드에 포함할 경우, API 키를 스크립트에 노출하지 않도록 주의해야 합니다.
-        wandb.login(relogin=False) 
-    except Exception as e:
-        print(f"[W&B] W&B login failed: {e}. Please run 'wandb login' in your terminal.")
-    
-    # run 이름을 지정하여 명확하게 관리합니다.
-    run_name = f"{CFG.model.name.replace('/', '-')}-{pd.Timestamp.now().strftime('%Y%m%d-%H%M')}"
-    run = wandb.init(
-        project="PII-Detection-Korean",  # 프로젝트 이름
-        name=run_name,                   # 실행 이름
-        config=vars(CFG)                 # CFG 설정을 함께 기록
-    )
-    print(f"✅ WandB run initialized: {run.name}")
-    
-    # TrainingArguments에서 `report_to=["wandb"]`가 설정되어 있으므로
-    # DebugWandbCallback은 불필요합니다. [cite: 19] 해당 클래스 정의와 add_callback 호출을 삭제하세요.
-    # class DebugWandbCallback(TrainerCallback): ...
-    # trainer.add_callback(DebugWandbCallback())'
-
-    # YAML 설정 대신 직접 모델 ID를 지정하거나, YAML 파일의 model.name을 "klue/roberta-large"로 변경합니다.
-    model_id = "klue/roberta-large" 
-    print(f"✅ Using Korean-specific model: {model_id}")
-    
-    # AutoTokenizer와 AutoModelForTokenClassification이 model_id를 기반으로
-    # 올바른 클래스를 자동으로 로드하므로 추가 변경이 필요 없습니다. [cite: 103]
-    tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
-    
-    model = AutoModelForTokenClassification.from_pretrained(
-        model_id,
-        num_labels=len(ALL_LABELS), 
-        id2label=id2label, 
-        label2id=label2id, 
-        use_safetensors=True 
-    )
-
-
-   # 0) ONLINE 전환 (모델/토크나이저 로드/리포 생성은 네트워크 필요)
-    os.environ.pop('TRANSFORMERS_OFFLINE', None)
-    
-    # 1) 로그인 확인
-    api = HfApi()
-    who = api.whoami()
-    username = who.get("name") or who.get("email") or "unknown"
-    print(f"[HF] Logged in as: {username}")
-    
-    # ---- HF repo (여기 교체/추가) ----
-    default_repo_name = f"{model_id}-pii-{run.name}".replace('/', '-')
-    hf_repo_name = f"{username}/{default_repo_name}"
-    
-    # repo를 미리 만들어두기 (없으면 생성, 있으면 통과)
-    create_repo(
-        repo_id=hf_repo_name,
-        private=True,
-        exist_ok=True,
-        repo_type="model",
-    )
-    print(f" Hugging Face repo ready: {hf_repo_id}")    
-    # ----------------------------------
-    
-    # fast 토크나이저 권장 (word_ids() 필요)
-    tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
-    
-    def align_labels_with_tokens(batch):
-        def normalize_tokens(toks):
-            # 기대형태: list[str]
-            if isinstance(toks, list):
-                if len(toks) > 0 and isinstance(toks[0], dict):
-                    # 예: [{"text": "Hello", ...}, ...] / [{"token": "Hello"}, ...]
-                    if "text" in toks[0]:
-                        return [t["text"] for t in toks]
-                    if "token" in toks[0]:
-                        return [t["token"] for t in toks]
-                if len(toks) > 0 and isinstance(toks[0], str):
-                    return toks
-                return [str(x) for x in toks]
-            elif isinstance(toks, str):
-                # 공백 기준 토큰화(임시)
-                return toks.split()
             else:
-                return [str(toks)]
-    
-        def normalize_labels(labs):
-            # 기대형태: list[str] (라벨 문자열)
-            if isinstance(labs, list):
-                if len(labs) > 0 and isinstance(labs[0], dict):
-                    # 예: [{"label":"B-EMAIL"}, ...] or {"labels": "..."}
-                    key = "label" if "label" in labs[0] else ("labels" if "labels" in labs[0] else None)
-                    if key is not None:
-                        return [l[key] for l in labs]
-                if len(labs) > 0 and isinstance(labs[0], str):
-                    return labs
-                return [str(x) for x in labs]
-            elif isinstance(labs, str):
-                return labs.split()
-            else:
-                return [str(labs)]
-    
-        toks_batch, labs_batch = [], []
-        for toks, labs in zip(batch["tokens"], batch["labels"]):
-            toks = normalize_tokens(toks)
-            labs = normalize_labels(labs)
-            # 길이 안 맞으면 라벨을 O로 패딩/잘라내기 (응급처치)
-            if len(labs) != len(toks):
-                if len(labs) < len(toks):
-                    labs = labs + ["O"] * (len(toks) - len(labs))
+                loss_fct = CrossEntropyLoss(weight=self.class_weights)
+                if self.label_smoother is not None and "labels" in inputs:
+                    loss = self.label_smoother(outputs, inputs)
                 else:
-                    labs = labs[:len(toks)]
-            toks_batch.append(toks)
-            labs_batch.append(labs)
+                    loss = loss_fct(logits.view(-1, self.model.config.num_labels),
+                                    labels.view(-1))
+            return (loss, outputs) if return_outputs else loss
     
-        tok = tokenizer(
-            toks_batch,
-            is_split_into_words=True,
-            truncation=True,
-            max_length=256,
-            padding=False,
-            add_special_tokens=True,
+    
+    ALL_LABELS = ['B-EMAIL','B-ID_NUM','B-NAME_STUDENT','B-PHONE_NUM',
+                  'B-STREET_ADDRESS','B-URL_PERSONAL','B-USERNAME',
+                  'I-ID_NUM','I-NAME_STUDENT','I-PHONE_NUM',
+                  'I-STREET_ADDRESS','I-URL_PERSONAL','O']  # O는 마지막
+    id2label = {i: lab for i, lab in enumerate(ALL_LABELS)}
+    label2id = {lab: i for i, lab in id2label.items()}
+    
+    
+    if __name__ == '__main__':
+        # --- 설정 및 시드 고정 (기존과 동일) ---
+        is_debugger = debugger_is_active()
+        if is_debugger:
+            # (디버그용 설정)
+            args = argparse.Namespace()
+            args.dir = os.getenv('BASE_DIR') + '/cfgs/single-gpu'
+            args.name = 'cfg1.yaml'
+        else:
+            # (실행용 설정)
+            parser = argparse.ArgumentParser(description="NER 모델 학습 스크립트")
+            parser.add_argument("--dir", required=True, help="YAML 설정 파일이 있는 디렉토리")
+            parser.add_argument("--name", required=True, help="YAML 설정 파일 이름")
+            args = parser.parse_args()
+    
+        CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
+        pl_seed(getattr(CFG, "seed", 42))
+    
+        # --- 1. W&B 초기화 (수정 완료) ---
+        # ✅ 스크립트 시작 시 한 번만 초기화
+        try:
+            wandb.login(relogin=False)
+        except Exception as e:
+            print(f"[W&B] W&B login failed: {e}. Please run 'wandb login' in your terminal.")
+        
+        run_name = f"{CFG.model.name.replace('/', '-')}-{pd.Timestamp.now().strftime('%Y%m%d-%H%M')}"
+        run = wandb.init(
+            project="PII-Detection-Korean-NER",
+            name=run_name,
+            config=vars(CFG)
+        )
+        print(f"✅ WandB run initialized: {run.name}")
+    
+        # --- 2. 모델 및 토크나이저 설정 (수정 완료) ---
+        model_id = "klue/roberta-large"
+        print(f"✅ Using Korean-specific model: {model_id}")
+    
+        tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+        model = AutoModelForTokenClassification.from_pretrained(
+            model_id,
+            num_labels=len(ALL_LABELS),
+            id2label=id2label,
+            label2id=label2id,
+            use_safetensors=True
+        )
+        model.config.use_cache = False
+        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+    
+        # --- 3. Hugging Face Hub 레포지토리 설정 (❗️수정) ---
+        os.environ.pop('TRANSFORMERS_OFFLINE', None)
+        api = HfApi()
+        who = api.whoami()
+        username = who.get("name")
+        
+        # ✅ 'username/모델이름' 형태로 repo_id를 한 번만 올바르게 생성
+        model_name_for_repo = f"{model_id.split('/')[-1]}-pii-{run.name}"
+        hf_repo_id = f"{username}/{model_name_for_repo}"
+        
+        create_repo(
+            repo_id=hf_repo_id,
+            private=True,
+            exist_ok=True,
+        )
+        print(f"✅ Hugging Face repo ready: {hf_repo_id}")
+    
+        # --- 4. 데이터 로드 및 전처리 (❗️수정) ---
+        def align_labels_with_tokens(batch):
+            def normalize_tokens(toks):
+                if isinstance(toks, list):
+                    if len(toks) > 0 and isinstance(toks[0], dict):
+                        if "text" in toks[0]: return [t["text"] for t in toks]
+                        if "token" in toks[0]: return [t["token"] for t in toks]
+                    if len(toks) > 0 and isinstance(toks[0], str): return toks
+                    return [str(x) for x in toks]
+                elif isinstance(toks, str): return toks.split()
+                else: return [str(toks)]
+            def normalize_labels(labs):
+                if isinstance(labs, list):
+                    if len(labs) > 0 and isinstance(labs[0], dict):
+                        key = "label" if "label" in labs[0] else ("labels" if "labels" in labs[0] else None)
+                        if key is not None: return [l[key] for l in labs]
+                    if len(labs) > 0 and isinstance(labs[0], str): return labs
+                    return [str(x) for x in labs]
+                elif isinstance(labs, str): return labs.split()
+                else: return [str(labs)]
+            toks_batch, labs_batch = [], []
+            for toks, labs in zip(batch["tokens"], batch["labels"]):
+                toks, labs = normalize_tokens(toks), normalize_labels(labs)
+                if len(labs) != len(toks):
+                    labs = (labs + ["O"] * len(toks))[:len(toks)]
+                toks_batch.append(toks); labs_batch.append(labs)
+            tok = tokenizer(toks_batch, is_split_into_words=True, truncation=True, max_length=256)
+            new_labels = []
+            for i, labs in enumerate(labs_batch):
+                word_ids = tok.word_ids(batch_index=i)
+                ids = [-100 if wid is None else label2id.get(labs[wid], label2id["O"]) for wid in word_ids]
+                new_labels.append(ids)
+            tok["labels"] = new_labels
+            return tok
+    
+        jsonl_path = str(Path(os.getenv('DATA_DIR')) / 'mdd-gen/llama3_placeholder_2.3K_v0.jsonl')
+        full_dataset = load_dataset("json", data_files={"train": jsonl_path})["train"]
+    
+        # ✅ 데이터를 학습용과 검증용으로 8:2 분리
+        split_datasets = full_dataset.train_test_split(test_size=0.2, seed=42)
+        raw_train, raw_val = split_datasets["train"], split_datasets["test"]
+        print(f"✅ Data split: {len(raw_train)} for training, {len(raw_val)} for validation.")
+    
+        # ✅ 학습셋과 검증셋 모두에 전처리 적용
+        ds_train = raw_train.map(align_labels_with_tokens, batched=True, remove_columns=raw_train.column_names)
+        ds_val = raw_val.map(align_labels_with_tokens, batched=True, remove_columns=raw_val.column_names)
+    
+        # --- 5. 클래스 가중치 계산 (❗️추가) ---
+        class_weights = None
+        if CFG.class_weights.apply:
+            print("Calculating class weights...")
+            all_labels_flat = [label for sublist in ds_train['labels'] for label in sublist if label != -100]
+            unique_labels = np.unique(all_labels_flat)
+            class_weights_arr = compute_class_weight('balanced', classes=unique_labels, y=all_labels_flat)
+            
+            class_weights_map = {label: weight for label, weight in zip(unique_labels, class_weights_arr)}
+            weights = torch.zeros(len(ALL_LABELS), dtype=torch.float32)
+            for i, label_name in id2label.items():
+                label_id = label2id[label_name]
+                weights[i] = class_weights_map.get(label_id, 1.0) # 데이터에 없는 라벨은 가중치 1.0
+            
+            class_weights = weights.to('cuda' if torch.cuda.is_available() else 'cpu')
+            print("✅ Class weights calculated and applied.")
+    
+        collator = DataCollatorForTokenClassification(tokenizer, pad_to_multiple_of=8)
+    
+        # --- 6. TrainingArguments 설정 (❗️수정) ---
+        # ✅ 평가 및 저장 전략 활성화
+        args = TrainingArguments(
+            output_dir=f"./results/{run.name}",
+            per_device_train_batch_size=CFG.train_args.per_device_train_batch_size,
+            gradient_accumulation_steps=CFG.train_args.gradient_accumulation_steps,
+            num_train_epochs=CFG.train_args.num_train_epochs,
+            learning_rate=CFG.train_args.learning_rate,
+            warmup_ratio=CFG.train_args.warmup_ratio,
+            weight_decay=CFG.train_args.weight_decay,
+            fp16=torch.cuda.is_available(),
+            
+            logging_strategy="steps",
+            logging_steps=10,
+            
+            eval_strategy="steps",
+            evaluation_steps=50,
+            
+            save_strategy="steps",
+            save_steps=50,
+            save_total_limit=2,
+            
+            load_best_model_at_end=True,
+            metric_for_best_model="f1", # compute_metrics 함수가 'f1' 키를 반환해야 함
+            
+            report_to=["wandb"],
+            hub_model_id=hf_repo_id,
+            push_to_hub=True,
         )
     
-        new_labels = []
-        for i, labs in enumerate(labs_batch):
-            word_ids = tok.word_ids(batch_index=i)
-            ids = []
-            for wid in word_ids:
-                if wid is None:
-                    ids.append(-100)
-                else:
-                    ids.append(label2id.get(labs[wid], label2id["O"]))
-            new_labels.append(ids)
-    
-        tok["labels"] = new_labels
-        return tok
-
-    
-    model = AutoModelForTokenClassification.from_pretrained(
-        model_id,     # ← CFG.model.name  → model_id
-        num_labels=len(ALL_LABELS), id2label=id2label, label2id=label2id, use_safetensors=True 
-    )
-    
-    model.config.use_cache = False
-    model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
-        
-    # 학습용 JSONL 경로
-    jsonl_path = str(Path(os.getenv('DATA_DIR')) / 'mdd-gen/llama3_placeholder_2.3K_v0.jsonl')
-    
-    # split 하지 말고 통째로 train으로 사용
-    ds_dict = load_dataset("json", data_files={"train": jsonl_path})
-    raw_train = ds_dict["train"]
-    raw_val = None  # 평가 안 씀
-    print(f"Loaded {len(raw_train)} examples")
-    
-    # 모델에不要한 원본 컬럼 제거(남길 컬럼만 유지)
-    keep_cols = {"tokens", "labels"}
-    cols_remove_train = [c for c in raw_train.column_names if c not in keep_cols]
-    
-    ds_train = raw_train.map(
-        align_labels_with_tokens,
-        batched=True,
-        remove_columns=[c for c in raw_train.column_names if c not in {"tokens", "labels"}],
-        desc="Tokenizing train"
-    )
-    
-        
-    # ==== 스텝 계산 (ds_train/ds_val 생성 직후) ====
-    train_size = len(ds_train)
-    bsz = CFG.train_args.per_device_train_batch_size
-    ga  = CFG.train_args.gradient_accumulation_steps
-    nep = CFG.train_args.num_train_epochs
-    frac = getattr(CFG.train_args, "eval_epoch_fraction", 0.2)  # 없으면 0.2 기본값
-    
-    if bsz <= 0 or ga <= 0:
-        raise ValueError("per_device_train_batch_size와 gradient_accumulation_steps는 1 이상이어야 합니다.")
-    
-    # 에폭당 스텝 수
-    steps_per_epoch = math.ceil(train_size / (bsz * ga))
-    
-    # 전체 스텝 수
-    num_steps = int(steps_per_epoch * nep)
-    
-    # 에폭의 frac 비율마다 평가
-    eval_steps = max(1, int(math.ceil(steps_per_epoch * frac)))
-    
-    print(f"Train size: {train_size:,}")
-    print(f"Steps/epoch: {steps_per_epoch:,}")
-    print(f"My Calculated NUM_STEPS: {num_steps:,}")
-    print(f"My Calculated eval_steps: {eval_steps:,}")
-
-    
-    # 안전 가드
-    if len(ds_train) == 0:
-        raise ValueError("Empty train/val dataset after tokenization. Check JSONL path and columns.")
-
-    
-    # 콜레이터
-    collator = DataCollatorForTokenClassification(tokenizer, pad_to_multiple_of=8)
-   
-
-    
-    # 4) 로컬 저장 (출력 디렉토리 준비)
-    output_dir = Path(os.getenv('SAVE_DIR')) / f'{run.name}'
-    output_dir.mkdir(parents=True, exist_ok=True)
-    tokenizer.save_pretrained(output_dir)
-    model.save_pretrained(output_dir)
-    print(f"[LOCAL] Saved tokenizer & model at: {str(output_dir)}")
-    
-    # 5) Hub 업로드 (git-lfs 자동, 대용량 파일 처리)
-    #    - repo_id 에 사용자명 생략 가능(현재 로그인 네임스페이스로 업로드)
-    try:
-        upload_folder(
-            repo_id=f"{username}/{hf_repo_name}",
-            folder_path=str(output_dir),
-            path_in_repo=".",
-            commit_message="upload tokenizer & model artifacts",
-        )
-        print(f"[HF] Uploaded to: https://huggingface.co/{who.get('name', username)}/{hf_repo_name}")
-    except Exception as e:
-        print(f"[HF] upload_folder warning: {e}")
-    
-    # 6) (선택) 학습 중엔 네트워크 차단하고 싶으면 다시 OFFLINE
-    os.environ['TRANSFORMERS_OFFLINE'] = '1'
-
-    use_bf16 = torch.cuda.is_available() and torch.cuda.is_bf16_supported()
-   
-    # ↓↓↓ TrainingArguments는 v5 기준으로 eval_strategy 사용, 학습 중 push는 끈다(자동 create_repo 방지)
-    gradient_checkpointing_kwargs = {'use_reentrant': getattr(CFG.train_args, 'use_reentrant', False)}
-    
-    args = TrainingArguments(
-        output_dir=f"./results/{run.name}",                     # output_dir은 하나만 지정해야 합니다.
-        per_device_train_batch_size=1,
-        gradient_accumulation_steps=1,
-        num_train_epochs=CFG.train_args.num_train_epochs,
-        hub_model_id=hf_repo_id,
-    
-        # --- 수정할 부분 ---
-        logging_strategy="steps",                   # "no"에서 "steps"로 변경
-        logging_steps=1,                           # 10 스텝마다 로그를 기록하도록 설정
-    
-        report_to=["wandb"],         # 이 설정은 이제 정상적으로 작동합니다.
-        
-        # eval이나 save를 원치 않으면 "no"로 유지
-        eval_strategy="no",
-        save_strategy="no",                         
-    
-        # --- 나머지 옵션들 ---
-        load_best_model_at_end=False,
-        weight_decay=0.0,
-        warmup_ratio=0.0,
-        fp16=False,
-        gradient_checkpointing=False,
-        push_to_hub=True,
-    )
-
-    class_weights = None
-    if CFG.class_weights.apply or CFG.focal_loss.apply:
+        # --- 7. Trainer 초기화 (❗️수정) ---
+        # ✅ CustomTrainer 사용 및 모든 인자 전달
         trainer = CustomTrainer(
             model=model,
             args=args,
             train_dataset=ds_train,
-            eval_dataset=ds_val,
+            eval_dataset=ds_val,           # ✅ 검증 데이터셋 전달
             data_collator=collator,
-            tokenizer=tokenizer,  # v5 경고 무시는 가능. 원하면 processing_class=tokenizer로 변경
+            tokenizer=tokenizer,
+            compute_metrics=compute_metrics, # ✅ 평가 함수 전달
+            class_weights=class_weights,     # ✅ 클래스 가중치 전달
+            focal_loss_info=CFG.focal_loss,
         )
-    else:
-        trainer = Trainer(
-            model=model,
-            args=args,
-            train_dataset=ds_train,
-            data_collator=collator,
-            tokenizer=tokenizer, )
     
-    # 학습
-    trainer.train()
-
-
-    class DebugWandbCallback(TrainerCallback):
-        def on_log(self, args, state, control, logs=None, **kwargs):
-            if logs:
-                import wandb
-                wandb.log(logs, step=state.global_step)
+        # --- 8. 학습 및 정리 (❗️수정) ---
+        # ❗️ 불필요한 로직(사전 업로드, 중복 저장, 콜백) 모두 제거
+        print("🚀 Starting training...")
+        trainer.train()
+        print("✅ Training complete.")
     
-    trainer.add_callback(DebugWandbCallback())
+        # ✅ 학습 종료 후 최종 모델 한 번만 Hub에 푸시 (선택사항, TrainingArguments가 이미 처리)
+        # trainer.push_to_hub(commit_message="End of training, final model upload.")
+        
+        wandb.finish()
+        print("✅ WandB run finished.")
     
-    model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
-
-    os.environ.pop('TRANSFORMERS_OFFLINE', None)
+        del run, trainer, model
+        torch.cuda.empty_cache()
+        _ = gc.collect()
     
-    # 학습 종료 후, 현재 로그인된 psh3333 네임스페이스로 수동 push
-    trainer.push_to_hub(
-        repo_id=hf_repo_name,     # 사용자명 없이 → 로그인 계정(psh3333) 네임스페이스
-        commit_message="final model upload",
-    )
-    print(f"[HF] Pushed to: https://huggingface.co/{username}/{hf_repo_name}")
-
-    # Close wandb logger
-    wandb.finish()
-    ############################################
-    # Clean up memory
-    ############################################
-    del run, trainer, model
-    torch.cuda.empty_cache()
-    _ = gc.collect()
-
-    # ############################################
-    # # Train on All Data
-    # ############################################
-    # # Create directory for saving all_data training
-    # output_all_dir = output_dir / 'all_data'
-    # output_tokenizer_dir = output_dir / 'tokenizer'
-    # if not output_all_dir.exists():
-    #     output_all_dir.mkdir(parents=False, exist_ok=True)
-    #     output_tokenizer_dir.mkdir(parents=False, exist_ok=True)
-
-    # # Combine train and val datasets
-    # ds_all = concatenate_datasets([ds_train, ds_val])
-    # ds_all = ds_all.shuffle(42)
-
-    # # Model
-    # model = AutoModelForTokenClassification.from_pretrained(
-    #     str(Path(os.getenv('MODEL_DIR')) / CFG.model.name),
-    #     num_labels=len(all_labels),
-    #     id2label=id2label,
-    #     label2id=label2id,
-    #     ignore_mismatched_sizes=True,
-    # )
-    # # Resize model token embeddings if tokens were added
-    # if CFG.tokenizer.add_tokens is not None:
-    #     model.resize_token_embeddings(
-    #         len(tokenizer),
-    #         pad_to_multiple_of=CFG.tokenizer.pad_to_multiple_of,
-    #     )
-
-    # # Trainer Arguments
-    # args = TrainingArguments(
-    # output_dir=str(output_all_dir),
-    # fp16=CFG.train_args.fp16,
-    # learning_rate=CFG.train_args.learning_rate,
-    # per_device_train_batch_size=CFG.train_args.per_device_train_batch_size,
-    # gradient_accumulation_steps=CFG.train_args.gradient_accumulation_steps,
-    # report_to="none",
-    # lr_scheduler_type='cosine',
-    # warmup_ratio=CFG.train_args.warmup_ratio,
-    # weight_decay=CFG.train_args.weight_decay,
-    # max_steps=optimal_steps,
-    # evaluation_strategy="no",
-    # save_total_limit=1,
-    # )
-
-    # # Initialize Trainer with custom class weights
-    # if not CFG.class_weights.apply and not CFG.focal_loss.apply:
-    #     trainer = Trainer(
-    #         model=model,
-    #         args=args,
-    #         train_dataset=ds_all,
-    #         data_collator=collator,
-    #         tokenizer=tokenizer,
-    #         compute_metrics=partial(train_metrics, all_labels=all_labels),
-    #     )
-    # else:
-    #     trainer = CustomTrainer(
-    #         model=model,
-    #         args=args,
-    #         train_dataset=ds_all,
-    #         data_collator=collator,
-    #         tokenizer=tokenizer,
-    #         compute_metrics=partial(train_metrics, all_labels=all_labels),
-    #         class_weights=class_weights,
-    #         focal_loss_info=CFG.focal_loss,
-    #     )
-    # trainer.train()
-
-    # # Save the trainer
-    # trainer.save_model(output_dir=output_all_dir)
-    # tokenizer.save_pretrained(save_directory=output_tokenizer_dir)
-
-    print('checkpoint')
-print('End of Script - Complete')
+        print('End of Script - Complete')
