@@ -26,7 +26,7 @@ import pandas as pd
 import numpy as np
 from transformers.models.deberta_v2 import DebertaV2ForTokenClassification, DebertaV2TokenizerFast
 from transformers import AutoTokenizer, Trainer, TrainingArguments
-from transformers import AutoModelForTokenClassification, DataCollatorForTokenClassification
+from transformers import AutoModelForTokenClassification, DataCollatorForTokenClassification, TrainerCallback
 from datasets import Dataset, features, concatenate_datasets
 import wandb
 from scipy.special import softmax
