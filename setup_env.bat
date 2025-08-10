@@ -42,6 +42,10 @@ echo MODEL_DIR: "%MODEL_DIR%"
 echo LLM_MODELS: "%LLM_MODELS%"
 echo SAVE_DIR: "%SAVE_DIR%"
 echo WANDB_DIR: "%WANDB_DIR%"
+
+path_file=./training/train_single_large.py
+path_cfg_dir=./cfgs/single-gpu
+
 echo.
 echo 디렉터리 생성 완료!
 echo.
