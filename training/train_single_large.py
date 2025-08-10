@@ -298,7 +298,7 @@ def main():
         logging_strategy="steps",
         logging_steps=10,
 
-        evaluation_strategy="steps",  # ← 중요!
+        eval_strategy="steps",  # ← 중요!
         eval_steps=50,                # ← 중요!
 
         save_strategy="steps",
