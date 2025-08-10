@@ -376,7 +376,7 @@ if __name__ == '__main__':
         warmup_ratio=0.0,
     
         # 메모리 절약 옵션
-        fp16=Ture,                          # GPU가 fp16 지원 시
+        fp16=True,                          # GPU가 fp16 지원 시
         bf16=False,                         # 둘 중 하나만 True
         gradient_checkpointing=False,
         
