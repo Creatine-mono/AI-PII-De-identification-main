@@ -530,75 +530,16 @@ def generate_username(first_name, last_name, algo, prob):
 
 
 def generate_email(first_name, last_name, faker, algo):
-    """usernames are created from first_name and last_name"""
-    if random.random() >= 0.50:
-        first_name, last_name, _ = get_name()
-
-    initials = ''.join(
-        [i[0] for i in (first_name + ' ' + last_name).split(' ')]).lower()
-
-    if len(initials) == 3:
-        first_name = first_name.split(' ')[0]
-
-    algo_num = random.choice([0, 1, None, None, None, None])
-    fn, ln = first_name, last_name
-    if algo_num == 0:
-        fn = fn[0]
-        ln = ln
-    elif algo_num == 1:
-        if len(fn.split(' ')) == 2:
-            fn = fn.split(' ')[0][0] + fn.split(' ')[1][0]
-        else:
-            fn = fn[0] + random.choice(string.ascii_lowercase)
-        ln = ln
+    """Generate email using Faker for simplicity and reliability"""
+    # 80% Faker 생성, 20% 커스텀 도메인 사용
+    if random.random() >= 0.2:
+        # Faker로 완전한 이메일 생성
+        return faker.email()
     else:
-        if len(initials) == 3:
-            if random.random() >= 0.3:
-                fn = first_name.split(' ')[0]
-                ln = last_name
-            else:
-                fn = initials
-                ln = ''
-        else:
-            fn = first_name
-            ln = last_name
-    first_name = fn
-    last_name = ln
-
-    # Select real email domains
-    if random.random() >= 0.05:
-        if random.random() >= 0.50:
-            # Select from top 10
-            domain_name = random.choice(EMAIL_DOMAINS[0:6])
-        else:
-            # Select from botom 90
-            domain_name = random.choice(EMAIL_DOMAINS[6:])
-    else:
-        domain_name = faker.domain_name()
-
-    if algo_num is None:
-        sa = {
-            0: f"{first_name.lower()}{last_name.lower()}@{domain_name}",
-            1: f"{first_name.lower()}{last_name.lower()}{random.randint(1, 99)}@{domain_name}",
-            2: f"{first_name.lower()}.{last_name.lower()}@{domain_name}",
-            3: f"{first_name.lower()}.{last_name.lower()}{random.randint(1, 99)}@{domain_name}",
-            4: f"{first_name.lower()}_{last_name.lower()}@{domain_name}",
-            5: f"{first_name.lower()}_{last_name.lower()}{random.randint(1, 99)}@{domain_name}",
-            6: f"{last_name.lower()}{random.randint(1, 99)}@{domain_name}",
-            7: f"{last_name.lower()}@{domain_name}"}
-        email = sa[random.choice([0, 1, 2, 3, 4, 5, 6, 7])]
-    else:
-        sa = {
-            0: f"{first_name.lower()}{last_name.lower()}@{domain_name}",
-            1: f"{first_name.lower()}{last_name.lower()}{random.randint(1, 99)}@{domain_name}",
-            2: f"{last_name.lower()}{random.randint(1, 99)}@{domain_name}",
-            3: f"{last_name.lower()}@{domain_name}"}
-        email = sa[random.choice([0, 1, 2, 3])]
-
-    # Replace whitespaces with seps
-    email = email.replace(' ', '')
-
-    return email
+        # 커스텀 도메인 사용
+        local_part = faker.user_name()
+        domain_name = random.choice(EMAIL_DOMAINS)
+        return f"{local_part}@{domain_name}"
 
 
 def get_name():
