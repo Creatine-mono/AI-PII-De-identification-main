@@ -32,9 +32,9 @@ import string
 import re
 import time
 import os
+
 # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 os.environ['TRANSFORMERS_OFFLINE'] = '1'
-
 
 # Custom (cx) modules
 
@@ -43,7 +43,6 @@ DEVICE = torch.device(
 print(f"Device: {DEVICE}")
 print(f"CUDA Version: {torch.version.cuda}")
 print(f"Pytorch {torch.__version__}")
-
 
 # Ensure that all operations are deterministic on GPU (if used) for
 # reproducibility
@@ -100,7 +99,7 @@ def generate_noisy_phone_number():
         '8': ['8', '팔', 'ㅍ', 'B'],
         '9': ['9', '구', 'ㄱ', 'g', 'q', 'p']
     }
-    
+
     # 기본 숫자 생성
     if random.random() >= 0.1:
         # 90% 휴대폰 번호
@@ -110,16 +109,17 @@ def generate_noisy_phone_number():
         last = f"{random.randint(0, 9999):04d}"
     else:
         # 10% 지역번호
-        area_codes = ['02', '031', '032', '033', '041', '042', '043', '044', '051', '052', '053', '054', '055', '061', '062', '063', '064']
+        area_codes = ['02', '031', '032', '033', '041', '042', '043', '044', '051', '052', '053', '054', '055', '061',
+                      '062', '063', '064']
         prefix = random.choice(area_codes)
         middle = f"{random.randint(100, 999):03d}"
         last = f"{random.randint(1000, 9999):04d}"
-    
+
     # 변조된 문자로 변환
     noisy_p1 = "".join([random.choice(noisy_map[d]) for d in prefix])
     noisy_p2 = "".join([random.choice(noisy_map[d]) for d in middle])
     noisy_p3 = "".join([random.choice(noisy_map[d]) for d in last])
-    
+
     # 형식 랜덤 선택 (하이픈 있음/없음)
     formats = [
         f"{noisy_p1}-{noisy_p2}-{noisy_p3}",
@@ -135,12 +135,12 @@ def generate_date_of_birth():
     year = random.randint(1950, 2025)
     month = random.randint(1, 12)
     day = random.randint(1, 28)  # 간단히 28일까지만
-    
+
     formats = [
         f"{year}-{month:02d}-{day:02d}",
         f"{year}.{month:02d}.{day:02d}",
         f"{year}년 {month}월 {day}일",
-        f"{year%100:02d}{month:02d}{day:02d}",  # YYMMDD 형식
+        f"{year % 100:02d}{month:02d}{day:02d}",  # YYMMDD 형식
         f"{year}/{month:02d}/{day:02d}",
     ]
     return random.choice(formats)
@@ -149,22 +149,23 @@ def generate_date_of_birth():
 def generate_age():
     """Generate age in Korean format for all age groups"""
     age = random.randint(0, 99)  # 모든 연령대 포함
-    
+
     korean_numbers = {
         1: '한', 2: '두', 3: '세', 4: '네', 5: '다섯', 6: '여섯', 7: '일곱', 8: '여덟', 9: '아홉', 10: '열',
         11: '열한', 12: '열두', 13: '열세', 14: '열네', 15: '열다섯', 16: '열여섯', 17: '열일곱', 18: '열여덟', 19: '열아홉', 20: '스무',
-        21: '스물한', 22: '스물두', 23: '스물세', 24: '스물네', 25: '스물다섯', 26: '스물여섯', 27: '스물일곱', 28: '스물여덟', 29: '스물아홉', 30: '서른',
+        21: '스물한', 22: '스물두', 23: '스물세', 24: '스물네', 25: '스물다섯', 26: '스물여섯', 27: '스물일곱', 28: '스물여덟', 29: '스물아홉',
+        30: '서른',
         31: '서른한', 32: '서른두', 33: '서른세', 34: '서른네', 35: '서른다섯', 36: '서른여섯',
         37: '서른일곱', 38: '서른여덟', 39: '서른아홉', 40: '마흔', 41: '마흔한', 42: '마흔두',
         43: '마흔세', 44: '마흔네', 45: '마흔다섯', 46: '마흔여섯', 47: '마흔일곱', 48: '마흔여덟',
         49: '마흔아홉', 50: '쉰', 60: '예순', 70: '일흔', 80: '여든', 90: '아흔'
     }
-    
+
     formats = []
-    
+
     # 기본 형태
     formats.extend([f"{age}세", f"{age}살"])
-    
+
     # 한글 표현 (50세 이하 또는 10의 배수)
     if age in korean_numbers:
         formats.append(f"{korean_numbers[age]}살")
@@ -172,7 +173,7 @@ def generate_age():
         formats.append(f"{age}살")
     elif age % 10 == 0 and age <= 90:
         formats.append(f"{korean_numbers[age]}살")
-    
+
     # 연령대 표현 (10세 이상만)
     if age >= 10:
         decade = age // 10
@@ -181,9 +182,9 @@ def generate_age():
         elif decade <= 9:
             formats.extend([
                 f"{decade}0대",
-                f"{decade}0대 {'초반' if age%10 <= 3 else '중반' if age%10 <= 6 else '후반'}"
+                f"{decade}0대 {'초반' if age % 10 <= 3 else '중반' if age % 10 <= 6 else '후반'}"
             ])
-    
+
     # 유아/어린이/청소년 표현
     if age <= 7:
         formats.extend([f"{age}살 유아", f"{age}세 어린이"])
@@ -191,7 +192,7 @@ def generate_age():
         formats.append(f"{age}세 어린이")
     elif age <= 19:
         formats.extend([f"{age}세 청소년", f"10대"])
-    
+
     return random.choice(formats)
 
 
@@ -208,14 +209,14 @@ def generate_credit_card_info():
         '하나카드': ['4456', '5789', '4567'],
         '우리카드': ['4678', '5890', '4123']
     }
-    
+
     card_company = random.choice(list(card_bins.keys()))
     bin_code = random.choice(card_bins[card_company])
-    
+
     # 나머지 12자리 생성
     remaining = ''.join([str(random.randint(0, 9)) for _ in range(12)])
     card_number = bin_code + remaining
-    
+
     formats = [
         f"{card_number[:4]}-{card_number[4:8]}-{card_number[8:12]}-{card_number[12:]}",
         f"{card_number[:4]} {card_number[4:8]} {card_number[8:12]} {card_number[12:]}",
@@ -237,10 +238,10 @@ def generate_banking_number():
         '기업은행': ['001', '002', '003'],
         '대구은행': ['504', '505', '506']
     }
-    
+
     bank = random.choice(list(banks.keys()))
     prefix = random.choice(banks[bank])
-    
+
     if bank in ['우리은행', '신한은행']:
         # 우리은행, 신한은행: XXXX-XXX-XXXXXX
         middle = str(random.randint(100, 999))
@@ -252,7 +253,7 @@ def generate_banking_number():
         suffix1 = str(random.randint(10, 99))
         suffix2 = str(random.randint(100, 999))
         account = f"{prefix}-{middle}-{suffix1}-{suffix2}"
-    
+
     formats = [
         account,
         account.replace('-', ''),
@@ -269,26 +270,15 @@ def generate_organization_name():
         '경희대학교', '한국외국어대학교', '서강대학교', '이화여자대학교', '홍익대학교',
         '건국대학교', '동국대학교', '국민대학교', '숭실대학교', '세종대학교'
     ]
-    
+
     companies = [
         '삼성전자', 'LG전자', 'SK텔레콤', '현대자동차', '기아자동차', '포스코',
         'KB금융그룹', '신한은행', '우리은행', '하나금융그룹', '롯데그룹', 'GS그룹',
         '두산그룹', 'LS그룹', 'CJ그룹', '한화그룹', '대우조선해양', '현대중공업'
     ]
-    
+
     organizations = universities + companies
     return random.choice(organizations)
-
-
-def generate_nationality():
-    """Generate nationality information"""
-    nationalities = [
-        '대한민국', '한국', '한국인', 'Korean', 'South Korean',
-        '중국', '중국인', 'Chinese', '일본', '일본인', 'Japanese',
-        '미국', '미국인', 'American', '캐나다', '캐나다인', 'Canadian',
-        '베트남', '베트남인', 'Vietnamese', '태국', '태국인', 'Thai'
-    ]
-    return random.choice(nationalities)
 
 
 def generate_date():
@@ -296,7 +286,7 @@ def generate_date():
     year = random.randint(2020, 2024)
     month = random.randint(1, 12)
     day = random.randint(1, 28)
-    
+
     formats = [
         f"{year}-{month:02d}-{day:02d}",
         f"{year}.{month:02d}.{day:02d}",
@@ -305,22 +295,6 @@ def generate_date():
         f"{day}.{month}.{year}",
     ]
     return random.choice(formats)
-
-
-def generate_gender():
-    """Generate gender information"""
-    genders = ['남성', '여성', '남자', '여자', 'Male', 'Female', 'M', 'F']
-    return random.choice(genders)
-
-
-def generate_medical_condition():
-    """Generate medical condition information"""
-    conditions = [
-        '고혈압', '당뇨병', '천식', '알레르기', '우울증', '불안장애',
-        '갑상선질환', '위염', '신장질환', '간질환', '심장병', '관절염',
-        '골다공증', '빈혈', '편두통', '불면증', 'ADHD', '자폐스펙트럼장애'
-    ]
-    return random.choice(conditions)
 
 
 def generate_password():
@@ -333,7 +307,7 @@ def generate_password():
         lambda: f"password{random.randint(123, 999)}",
         lambda: f"{''.join(random.choices(['qwer', 'asdf', 'zxcv'], k=1))}{random.randint(1234, 9999)}",
     ]
-    
+
     return random.choice(patterns)()
 
 
@@ -352,7 +326,7 @@ def generate_secure_credential():
 def generate_korean_phone_number():
     """Generate Korean phone number format with various styles including corrupted versions"""
     phone_type = random.choice(['normal', 'korean_text', 'noisy'])
-    
+
     if phone_type == 'korean_text':
         return generate_korean_text_phone_number()
     elif phone_type == 'noisy':
@@ -365,7 +339,7 @@ def generate_korean_phone_number():
             prefix = random.choice(prefixes)
             middle = str(random.randint(1000, 9999))
             last = str(random.randint(1000, 9999))
-            
+
             # 형식 랜덤 선택 (하이픈 있음/없음/공백)
             formats = [
                 f"{prefix}-{middle}-{last}",
@@ -375,11 +349,12 @@ def generate_korean_phone_number():
             return random.choice(formats)
         else:
             # 10% 일반 전화번호 (지역번호)
-            area_codes = ['02', '031', '032', '033', '041', '042', '043', '044', '051', '052', '053', '054', '055', '061', '062', '063', '064']
+            area_codes = ['02', '031', '032', '033', '041', '042', '043', '044', '051', '052', '053', '054', '055',
+                          '061', '062', '063', '064']
             area_code = random.choice(area_codes)
             middle = str(random.randint(100, 999))
             last = str(random.randint(1000, 9999))
-            
+
             formats = [
                 f"{area_code}-{middle}-{last}",
                 f"{area_code}{middle}{last}",
@@ -389,12 +364,12 @@ def generate_korean_phone_number():
 
 
 def generate_street_address(fake):
-    if random.random() >= 0.0:
+    """Generate Korean street address using faker with ko_KR locale"""
+    # 기본적으로 ko_KR 로케일의 address 사용
+    if random.random() >= 0.2:
         sa = str(fake.address()).replace("\n", random.choice([", ", " "]))
     else:
-        sa = str(fake.address())
-
-    if random.random() >= 0.9:
+        # 10% 확률로 다양한 조합 시도
         sa = {0: fake.street_name() + ', ' + fake.city(),
               1: fake.street_address(),
               2: fake.street_address(),
@@ -409,21 +384,21 @@ def get_userid(length=16):
     """Generate userid - """
     if random.random() >= 0.30:
         # very common in training data 034626995785
-        userid = str(random.randint(10**11, 10**12 - 1))
+        userid = str(random.randint(10 ** 11, 10 ** 12 - 1))
     else:
         if random.random() >= 0.5:
             # DM:705244534902
             userid = ("".join(random.choices(string.ascii_uppercase, k=2)) +
-                      ':' + str(random.randint(10**11, 10**12 - 1)))
+                      ':' + str(random.randint(10 ** 11, 10 ** 12 - 1)))
         else:
             if random.random() >= 0.25:
                 # nMFtUVxSUI|33529258
                 userid = ("".join(random.choices(string.ascii_letters, k=10)) +
-                          '|' + str(random.randint(10**8, 10**9 - 1)))
+                          '|' + str(random.randint(10 ** 8, 10 ** 9 - 1)))
             else:
                 # ras21 or 51,00,23,0
                 userid = ("".join(random.choices(string.ascii_letters, k=random.randint(
-                    3, 5))) + str(random.randint(10**4, 10**6 - 1)))
+                    3, 5))) + str(random.randint(10 ** 4, 10 ** 6 - 1)))
     # Split id_num
     if random.random() >= 1.0:
         sep = random.choice([' ', '-'])
@@ -435,7 +410,6 @@ def get_userid(length=16):
 
 # Unique combinations of first / last name
 def combine_first_last(fn: str, ln: str, algo_num: int):
-
     initials = [i[0] for i in (fn + ' ' + ln).split(' ')]
 
     if algo_num == 0:
@@ -471,8 +445,8 @@ def social_media(username, prob):
 
     if platform == 'YouTube':
         post = {
-            0: f'channel/UC{"".join(random.choices(string.ascii_letters + string.digits, k=random.randint(12,14)))}',
-            1: f'channel/watch?v={"".join(random.choices(string.ascii_letters + string.digits, k=random.randint(10,12)))}',
+            0: f'channel/UC{"".join(random.choices(string.ascii_letters + string.digits, k=random.randint(12, 14)))}',
+            1: f'channel/watch?v={"".join(random.choices(string.ascii_letters + string.digits, k=random.randint(10, 12)))}',
             2: f'channel/user/{username}',
             3: f'c/{username}',
         }
@@ -507,7 +481,6 @@ def personal_site(first_name, last_name, username):
 
 # Generate the personal url from social media
 def generate_fake_social_media_url(first_name, last_name, algo):
-
     if random.random() >= 0.50:
         first_name, last_name, _ = get_name()
 
@@ -536,7 +509,7 @@ def generate_username(first_name, last_name, algo, prob):
             first_name = first_name.split(' ')[0]
 
     if random.random() >= prob:
-        username = f"{first_name.lower()}{last_name.lower()}{random.randint(1,999)}"
+        username = f"{first_name.lower()}{last_name.lower()}{random.randint(1, 999)}"
     else:
         username = f"{first_name}{last_name}"
 
@@ -616,35 +589,37 @@ def generate_email(first_name, last_name, faker, algo):
 
     return email
 
-faker = Faker()
+
 def get_name():
-    global FIRSTNAME_REAL, LASTNAME_REAL, faker
-    use_real = (
-        len(FIRSTNAME_REAL) > 0 and 
-        len(LASTNAME_REAL) > 0 and 
-        random.random() < 0.8  # 80% 확률로 진짜 이름 사용
-    )
+    # Select the student country to generate the user info based on the country
+    COUNTRIES = ["ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
+                 "ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
+                 "ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
+                 "ko_KR", "ko_KR", "ko_KR"]
+    faker = Faker(random.choice(COUNTRIES))
 
-    if use_real:
-        first_name = random.choice(FIRSTNAME_REAL)
-        last_name = random.choice(LASTNAME_REAL)
-        # real = True
+    # Faker를 통해서만 이름 생성 (real_name 파일 사용 제거)
+    if random.random() >= 0.25:
+        first_name = faker.first_name()
+        last_name = faker.last_name()
     else:
-        # Faker 조합 이름 사용 (20%)
-        if random.random() >= 0.25:
-            first_name = faker.first_name()
-            last_name = faker.last_name()
-        else:
-            first_name = faker.first_name() + ' ' + faker.last_name()
-            last_name = faker.last_name()
+        first_name = faker.first_name() + ' ' + faker.last_name()
+        last_name = faker.last_name()
 
-    # 특수 문자 제거 및 ASCII 정규화
+    # Remove special characters
     first_name = first_name.replace('-', ' ')
     last_name = last_name.replace('-', ' ')
-    first_name = unicodedata.normalize('NFKD', first_name).encode('ascii', 'ignore').decode('utf-8')
-    last_name = unicodedata.normalize('NFKD', last_name).encode('ascii', 'ignore').decode('utf-8')
+
+    # Normalize unicode characters
+    first_name = unicodedata.normalize(
+        'NFKD', first_name).encode(
+        'ascii', 'ignore').decode('utf-8')
+    last_name = unicodedata.normalize(
+        'NFKD', last_name).encode(
+        'ascii', 'ignore').decode('utf-8')
 
     return first_name, last_name, faker
+
 
 def generate_student_info():
     """Generates all the user info (name, eamil addresses, phone number, etc) together """
@@ -663,7 +638,7 @@ def generate_student_info():
     fake_url = generate_fake_social_media_url(first_name, last_name, algos[1])
     fake_email = generate_email(first_name, last_name, faker, algos[2])
     street_address = generate_street_address(fake=faker)
-    
+
     student = {}
     # 기존 PII 항목들
     student['ID_NUM'] = get_userid()  # User ID
@@ -673,42 +648,37 @@ def generate_student_info():
     student['PHONE_NUM'] = generate_korean_phone_number()
     student['URL_PERSONAL'] = fake_url
     student['STREET_ADDRESS'] = street_address
-    
+
     # 새로 추가된 PII 항목들
     student['DATE_OF_BIRTH'] = generate_date_of_birth()
     student['AGE'] = generate_age()
     student['CREDIT_CARD_INFO'] = generate_credit_card_info()
     student['BANKING_NUMBER'] = generate_banking_number()
-    
+
     # 7:3 비율로 커스텀 함수 vs Faker 기본 함수 사용
     if random.random() >= 0.3:
         student['ORGANIZATION_NAME'] = faker.company()  # 70% 커스텀
     else:
         student['ORGANIZATION_NAME'] = generate_organization_name()  # 30% Faker
-    
-    student['NATIONALITY'] = generate_nationality()
-    
+
     if random.random() >= 0.3:
         student['DATE'] = generate_date()  # 70% 커스텀
     else:
         student['DATE'] = faker.date()  # 30% Faker
-    
-    student['GENDER'] = generate_gender()
-    student['MEDICAL_CONDITION'] = generate_medical_condition()
+
     student['PASSWORD'] = generate_password()
     student['SECURE_CREDENTIAL'] = generate_secure_credential()
-    
+
     del faker
     clear_memory()
-#     print(student)
+    #     print(student)
     return student
 
 
-label_types = ['NAME', 'EMAIL', 'USERNAME', 'ID_NUM', 'PHONE_NUM', 
+label_types = ['NAME', 'EMAIL', 'USERNAME', 'ID_NUM', 'PHONE_NUM',
                'URL_PERSONAL', 'STREET_ADDRESS', 'DATE_OF_BIRTH', 'AGE',
                'CREDIT_CARD_INFO', 'BANKING_NUMBER', 'ORGANIZATION_NAME',
-               'NATIONALITY', 'DATE', 'GENDER', 'MEDICAL_CONDITION',
-               'PASSWORD', 'SECURE_CREDENTIAL']
+               'DATE', 'PASSWORD', 'SECURE_CREDENTIAL']
 
 if __name__ == '__main__':
     # Determine if running in debug mode
@@ -753,51 +723,11 @@ if __name__ == '__main__':
     df_train = pd.read_json(
         Path(
             CFG.gen_dir) /
-        'placeholder/train.json')
+        'pii-detection-removal-from-educational-data/train.json')
     df_train = df_train.explode(
         ['tokens', 'trailing_whitespace', 'labels']).reset_index(drop=True)
 
-    # Load Real Names
-# 이름/성 데이터 로드
-dfgn = pd.read_parquet(Path(CFG.gen_dir) / 'placeholder/given_names_data.parquet')
-dfsn = pd.read_parquet(Path(CFG.gen_dir) / 'placeholder/surnames_data.parquet')
-
-# 1. 이름 컬럼 자동 감지
-possible_given_cols = ['given_name', 'name', '이름']
-gn_col = next((col for col in dfgn.columns if col in possible_given_cols), None)
-if gn_col is None:
-    raise ValueError(f"이름 컬럼 없음: {dfgn.columns.tolist()}")
-
-# 2. 전처리
-dfgn[gn_col] = dfgn[gn_col].fillna("").astype(str)
-dfsn['surname'] = dfsn['surname'].fillna("").astype(str)
-
-# 3. 필터 처리
-dfgn['is_ascii'] = dfgn[gn_col].apply(lambda x: str(x).isascii())
-dfgn['len_gn'] = dfgn[gn_col].apply(lambda x: len(x))
-dfgn['num_names'] = dfgn[gn_col].apply(lambda x: len(x.split(' ')))
-dfgn = dfgn[(dfgn['len_gn'] >= dfgn['len_gn'].mean()) & dfgn['is_ascii'] & (dfgn['num_names'] <= 2)].reset_index(drop=True)
-dfsn = dfsn[dfsn['surname'].str.len() > 0].reset_index(drop=True)
-
-# 4. 샘플 수 계산
-sample_size = min(len(dfgn), len(dfsn), 50_000)
-if sample_size == 0:
-    raise ValueError("사용 가능한 이름/성 데이터가 없습니다.")
-
-# 5. 샘플 추출
-FIRSTNAME_REAL, LASTNAME_REAL = zip(*random.sample(
-    list(zip(dfgn[gn_col].tolist(), dfsn['surname'].tolist())),
-    sample_size
-))
-
-# 후처리
-FIRSTNAME_REAL = [i.replace('-', ' ') for i in list(FIRSTNAME_REAL)]
-LASTNAME_REAL = [i.replace('-', ' ') for i in list(LASTNAME_REAL)]
-
-del dfgn, dfsn
-_ = gc.collect()
-print(f'# of Real First Names: {len(FIRSTNAME_REAL):,}')
-print(f'# of Real Last Names: {len(LASTNAME_REAL):,}')
+    # Real Names 로딩 부분 제거 - Faker만 사용
 
 # Load top email domains
 with open('./gen-data/top-domains.txt', 'r') as file:
