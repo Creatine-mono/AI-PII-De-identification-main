@@ -410,6 +410,7 @@ def get_userid(length=16):
 
 # Korean name combination logic
 def combine_first_last(fn: str, ln: str, algo_num: int):
+
     # 한국어 이름 처리 - 공백 제거 및 안전성 체크
     fn = fn.strip() if fn else ""
     ln = ln.strip() if ln else ""
@@ -418,6 +419,7 @@ def combine_first_last(fn: str, ln: str, algo_num: int):
     if not fn or not ln:
         return fn, ln
     
+
     if algo_num == 0:
         # 이름 첫 글자 + 성
         fn = fn[0] if len(fn) > 0 else fn
@@ -736,7 +738,8 @@ if __name__ == '__main__':
     # df_train = df_train.explode(
     #     ['tokens', 'trailing_whitespace', 'labels']).reset_index(drop=True)
 
-    # Real Names 로딩 부분 제거 - Faker만 사용
+
+
 
 # Load top email domains
 with open('./gen-data/top-domains.txt', 'r') as file:
