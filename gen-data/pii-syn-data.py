@@ -408,18 +408,25 @@ def get_userid(length=16):
     return userid
 
 
-# Unique combinations of first / last name
+# Korean name combination logic
 def combine_first_last(fn: str, ln: str, algo_num: int):
-    initials = [i[0] for i in (fn + ' ' + ln).split(' ')]
-
+    # 한국어 이름 처리 - 공백 제거 및 안전성 체크
+    fn = fn.strip() if fn else ""
+    ln = ln.strip() if ln else ""
+    
+    # 빈 이름 처리
+    if not fn or not ln:
+        return fn, ln
+    
     if algo_num == 0:
-        fn = fn[0]
+        # 이름 첫 글자 + 성
+        fn = fn[0] if len(fn) > 0 else fn
         ln = ln
     elif algo_num == 1:
-        if len(fn.split(' ')) == 2:
-            fn = fn.split(' ')[0][0] + fn.split(' ')[1][0]
-        else:
-            fn = fn[0] + random.choice(string.ascii_lowercase)
+        # 이름 첫 글자 + 성 첫 글자 (한국어용)
+        fn_initial = fn[0] if len(fn) > 0 else ""
+        ln_initial = ln[0] if len(ln) > 0 else ""
+        fn = fn_initial + ln_initial
         ln = ln
     return fn, ln
 
@@ -494,27 +501,29 @@ def generate_fake_social_media_url(first_name, last_name, algo):
 
 
 def generate_username(first_name, last_name, algo, prob):
-    """usernames are created from first_name and last_name"""
+    """Korean-optimized username generation"""
 
     if random.random() >= 0.50:
         first_name, last_name, _ = get_name()
 
-    SEPS = [""]
+    # 안전성 체크
+    first_name = first_name.strip() if first_name else ""
+    last_name = last_name.strip() if last_name else ""
+    
+    if not first_name or not last_name:
+        return f"user{random.randint(1000, 9999)}"
 
     if algo is not None:
         first_name, last_name = combine_first_last(
             fn=first_name, ln=last_name, algo_num=algo)
-    else:
-        if len(first_name.split(' ')) > 1:
-            first_name = first_name.split(' ')[0]
 
     if random.random() >= prob:
         username = f"{first_name.lower()}{last_name.lower()}{random.randint(1, 999)}"
     else:
         username = f"{first_name}{last_name}"
 
-    # Replace whitespaces with seps
-    username = username.replace(' ', random.choice(SEPS)).lower()
+    # 공백 제거 및 소문자 변환
+    username = username.replace(' ', '').lower()
     return username
 
 
@@ -720,12 +729,12 @@ if __name__ == '__main__':
     seed_everything(seed=CFG.seed)
 
     # Training data
-    df_train = pd.read_json(
-        Path(
-            CFG.gen_dir) /
-        'pii-detection-removal-from-educational-data/train.json')
-    df_train = df_train.explode(
-        ['tokens', 'trailing_whitespace', 'labels']).reset_index(drop=True)
+    # df_train = pd.read_json(
+    #     Path(
+    #         CFG.gen_dir) /
+    #     'pii-detection-removal-from-educational-data/train.json')
+    # df_train = df_train.explode(
+    #     ['tokens', 'trailing_whitespace', 'labels']).reset_index(drop=True)
 
     # Real Names 로딩 부분 제거 - Faker만 사용
 
