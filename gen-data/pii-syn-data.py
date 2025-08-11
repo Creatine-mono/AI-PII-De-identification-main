@@ -719,14 +719,6 @@ if __name__ == '__main__':
     # Seed everything
     seed_everything(seed=CFG.seed)
 
-    # Training data
-    df_train = pd.read_json(
-        Path(
-            CFG.gen_dir) /
-        'pii-detection-removal-from-educational-data/train.json', lines=True)
-    df_train = df_train.explode(
-        ['tokens', 'trailing_whitespace', 'labels']).reset_index(drop=True)
-
     # Real Names 로딩 부분 제거 - Faker만 사용
 
 # Load top email domains
