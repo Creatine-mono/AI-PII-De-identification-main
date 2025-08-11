@@ -127,6 +127,7 @@ def generate_texts(pipeline, generated_df, path_save, batch_size=8):
         batch_indices = []
 
         for idx, (_, row) in enumerate(batch_df.iterrows()):
+            # 프롬프트 준비
             prompt_text = pipeline.tokenizer.apply_chat_template(
                 row['prompt'],
                 tokenize=False,
@@ -136,7 +137,7 @@ def generate_texts(pipeline, generated_df, path_save, batch_size=8):
             batch_indices.append(batch_start + idx)
 
         try:
-            # 배치 생성
+            # 배치 생성 - 동일한 매개변수 사용
             first_row = batch_df.iloc[0]
             outputs = pipeline(
                 batch_prompts,
@@ -167,6 +168,7 @@ def generate_texts(pipeline, generated_df, path_save, batch_size=8):
 
         except Exception as e:
             print(f"Batch processing failed, falling back to individual processing: {e}")
+            # 개별 처리로 fallback
             for i, (_, row) in enumerate(batch_df.iterrows()):
                 try:
                     prompt_text = pipeline.tokenizer.apply_chat_template(
@@ -209,8 +211,10 @@ def generate_texts(pipeline, generated_df, path_save, batch_size=8):
     print(f'Saved at: {path_save}')
 
 
-label_types = ['NAME', 'EMAIL', 'USERNAME', 'ID_NUM',
-               'PHONE_NUM', 'URL_PERSONAL', 'STREET_ADDRESS']
+label_types = ['NAME', 'EMAIL', 'USERNAME', 'ID_NUM', 'PHONE_NUM',
+               'URL_PERSONAL', 'STREET_ADDRESS', 'DATE_OF_BIRTH', 'AGE',
+               'CREDIT_CARD_INFO', 'BANKING_NUMBER', 'ORGANIZATION_NAME',
+               'DATE', 'PASSWORD', 'SECURE_CREDENTIAL']
 
 if __name__ == '__main__':
 
@@ -274,8 +278,7 @@ if __name__ == '__main__':
     cols = ['IDENTIFICATION_NUM', 'STREET_ADDRESS', 'PHONE_NUM',
             'USERNAME', 'URL_PERSONAL', 'EMAIL', 'DATE_OF_BIRTH', 'AGE',
             'CREDIT_CARD_INFO', 'BANKING_NUMBER', 'ORGANIZATION_NAME',
-            'NATIONALITY', 'DATE', 'GENDER', 'MEDICAL_CONDITION',
-            'PASSWORD', 'SECURE_CREDENTIAL']
+            'DATE', 'PASSWORD', 'SECURE_CREDENTIAL']
 
     writing_style = [
         '업무 보고서',
@@ -354,10 +357,7 @@ if __name__ == '__main__':
             'CREDIT_CARD_INFO': "신용카드 정보",
             'BANKING_NUMBER': "계좌번호",
             'ORGANIZATION_NAME': "소속 회사/기관명",
-            'NATIONALITY': "국적",
             'DATE': "날짜 정보",
-            'GENDER': "성별",
-            'MEDICAL_CONDITION': "건강 상태",
             'PASSWORD': "비밀번호",
             'SECURE_CREDENTIAL': "보안 인증정보"}
 
