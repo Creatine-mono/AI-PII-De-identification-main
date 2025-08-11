@@ -410,7 +410,7 @@ def get_userid(length=16):
 
 # Unique combinations of first / last name
 def combine_first_last(fn: str, ln: str, algo_num: int):
-    initials = [i[0] for i in (fn + ' ' + ln).split(' ')]
+    initials = "".join(i[0] for i in (fn + ' ' + ln).split() if i).lower()
 
     if algo_num == 0:
         fn = fn[0]
