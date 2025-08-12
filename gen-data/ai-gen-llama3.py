@@ -203,6 +203,9 @@ if __name__ == '__main__':
     CFG.gen_dir = os.getenv('GEN_DIR')
     CFG.llm_dir = os.getenv('LLM_MODELS')
 
+    CFG.generate_text.N = 10000
+    print(f"Generation count set to: {CFG.generate_text.N}")
+
     # Use Hugging Face model name directly if local path doesn't exist
     local_model_path = Path(CFG.llm_dir) / CFG.model
     if local_model_path.exists():
