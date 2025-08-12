@@ -29,10 +29,22 @@ import wandb
 # Config & Globals
 # =========================
 ALL_LABELS = [
-    'B-EMAIL','B-ID_NUM','B-NAME_STUDENT','B-PHONE_NUM',
-    'B-STREET_ADDRESS','B-URL_PERSONAL','B-USERNAME',
-    'I-ID_NUM','I-NAME_STUDENT','I-PHONE_NUM',
-    'I-STREET_ADDRESS','I-URL_PERSONAL','O'
+    'B-NAME', 'I-NAME',
+    'B-EMAIL', 'I-EMAIL',
+    'B-USERNAME', 'I-USERNAME',
+    'B-ID_NUM', 'I-ID_NUM',
+    'B-PHONE_NUM', 'I-PHONE_NUM',
+    'B-URL_PERSONAL', 'I-URL_PERSONAL',
+    'B-STREET_ADDRESS', 'I-STREET_ADDRESS',
+    'B-DATE_OF_BIRTH', 'I-DATE_OF_BIRTH',
+    'B-AGE', 'I-AGE',
+    'B-CREDIT_CARD_INFO', 'I-CREDIT_CARD_INFO',
+    'B-BANKING_NUMBER', 'I-BANKING_NUMBER',
+    'B-ORGANIZATION_NAME', 'I-ORGANIZATION_NAME',
+    'B-DATE', 'I-DATE',
+    'B-PASSWORD', 'I-PASSWORD',
+    'B-SECURE_CREDENTIAL', 'I-SECURE_CREDENTIAL',
+    'O'
 ]
 id2label = {i: lab for i, lab in enumerate(ALL_LABELS)}
 label2id = {lab: i for i, lab in id2label.items()}
