@@ -48,29 +48,61 @@ def clear_memory():
 
 
 def load_model(model_path: str, *, quantize: bool = False):
-    # OFFLINE이면 캐시/로컬 모델이 반드시 존재해야 함
-    offline = os.getenv("TRANSFORMERS_OFFLINE") == "1"
-
-    use_cuda = torch.cuda.is_available()
-    torch_dtype = torch.bfloat16 if use_cuda else torch.float32
-
-    pipe = transformers.pipeline(
-        task="text-generation",
+    model_pipeline = transformers.pipeline(
+        "text-generation",
         model=model_path,
-        tokenizer=model_path,
-        device_map="auto" if use_cuda else None,   # GPU 자동 매핑
-        model_kwargs={"torch_dtype": torch_dtype},
-        trust_remote_code=True
-    )
+        model_kwargs={"torch_dtype": torch.bfloat16},
+        device="cuda",)
+    return model_pipeline
 
-    # 토크나이저 기본세팅(배치 안정화)
-    tok = pipe.tokenizer
-    tok.padding_side = "left"  # causal LM 배치에 유리
-    if tok.pad_token_id is None and tok.eos_token_id is not None:
-        tok.pad_token_id = tok.eos_token_id
 
-    return pipe
+def generate_texts(pipeline, generated_df, path_save):
 
+    # Generate the texts
+    for i in tqdm(range(len(generated_df))):
+        start = time.time()
+        # Get the prompt
+        prompt = generated_df.prompt.iloc[i]
+        max_new_tokens = generated_df['max_new_tokens'].iloc[i]
+        temperature = generated_df['temperature'].iloc[i]
+        top_p = generated_df['top_p'].iloc[i]
+        top_k = int(generated_df['top_k'].iloc[i])
+        repeat_penalty = generated_df['repetition_penalty'].iloc[i]
+        file_name = generated_df['file_name'].iloc[i]
+        writing_style = generated_df['writing_style'].iloc[i]
+        fields_used = generated_df['fields_used'].iloc[i]
+
+        # Tokenize the prompt
+        prompt = pipeline.tokenizer.apply_chat_template(
+            prompt,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+
+        terminators = [
+            pipeline.tokenizer.eos_token_id,
+            pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")
+        ]
+
+        # Generate the outputs from prompt
+        outputs = pipeline(
+            prompt,
+            max_new_tokens=max_new_tokens,
+            eos_token_id=terminators,
+            do_sample=True,
+            temperature=temperature,
+        )
+        # print(outputs[0]["generated_text"][len(prompt):])
+        generated_df.loc[i, 'generated_text'] = outputs[0]["generated_text"]
+
+        # Partial save of data
+        if i % 5 == 0:
+            generated_df.to_csv(path_save, index=False, encoding="UTF-8")
+        print(
+            f"Complete the text for {i}-th student {time.time() - start: .1f} seconds")
+    # Save generated_df to csv
+    generated_df.to_csv(path_save, index=False, encoding="UTF-8")
+    print(f'Saved at: {path_save}')
     
 def generate_texts(pipeline, generated_df, path_save, batch_size=8):
     """배치 처리로 텍스트 생성"""
@@ -210,37 +242,20 @@ if __name__ == '__main__':
                             help="File name of YAML config. file")
         args = parser.parse_args()
         print(args)
+    # Load the configuration file
+    CFG = load_cfg(base_dir=Path(args.dir),
+                   filename=args.name)
+    CFG.base_dir = os.getenv('BASE_DIR')
+    CFG.gen_dir = os.getenv('GEN_DIR')
+    CFG.llm_dir = os.getenv('LLM_MODELS')
 
-    CFG = load_cfg(base_dir=Path(args.dir), filename=args.name)
-
-    # 환경변수 값이 없으면 YAML 값이나 기본값으로 방어
-    CFG.base_dir = os.getenv('BASE_DIR') or getattr(CFG, 'base_dir', None)
-    CFG.gen_dir  = os.getenv('GEN_DIR')  or getattr(CFG, 'gen_dir', './generated-data')
-    CFG.llm_dir  = os.getenv('LLM_MODELS') or getattr(CFG, 'llm_dir', None)
-    
-    def resolve_model_path(cfg):
-        """
-        llm_dir이 없거나 비어있으면 HF repo id 그대로 사용.
-        llm_dir이 있으면 (llm_dir/model) 경로가 실제 존재할 때만 로컬 경로 사용.
-        """
-        model = getattr(cfg, "model", None)
-        if not model:
-            raise ValueError("CFG.model 이 비어 있습니다. YAML에 model을 지정하세요.")
-    
-        llm_dir = getattr(cfg, "llm_dir", None)
-        if not llm_dir or str(llm_dir).strip().lower() in ("none", "null", ""):
-            return model  # HF repo id 그대로
-    
-        try:
-            candidate = Path(llm_dir) / model
-        except TypeError:
-            return model
-    
-        return str(candidate) if candidate.exists() else model
-    
-    MODEL_PATH = resolve_model_path(CFG)
-    print(f"MODEL_PATH: {MODEL_PATH}")
-
+    # Use Hugging Face model name directly if local path doesn't exist
+    local_model_path = Path(CFG.llm_dir) / CFG.model
+    if local_model_path.exists():
+        MODEL_PATH = str(local_model_path)
+    else:
+        MODEL_PATH = CFG.model  # Use HF model name directly
+    print(f'MODEL_PATH: {MODEL_PATH}')
 
     # Seed everything
     seed_everything(seed=CFG.seed)
