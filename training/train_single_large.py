@@ -46,7 +46,9 @@ ALL_LABELS = [
     'B-SECURE_CREDENTIAL', 'I-SECURE_CREDENTIAL',
     'O'
 ]
+# 정수 -> 문자열
 id2label = {i: lab for i, lab in enumerate(ALL_LABELS)}
+# 문자열 -> 정수
 label2id = {lab: i for i, lab in id2label.items()}
 
 def seed_everything(seed: int = 42):
@@ -87,6 +89,7 @@ def compute_metrics_fn(eval_pred):
 # =========================
 # Loss (옵션): Focal
 # =========================
+# 운 샘플의 손실 비중을 줄이고, 어려운 샘플의 손실 비중을 키우는 로스
 class FocalLoss(nn.Module):
     def __init__(self, alpha=1.0, gamma=2.0, reduction="mean"):
         super().__init__()
@@ -103,13 +106,15 @@ class FocalLoss(nn.Module):
         elif self.reduction == "sum":
             return loss.sum()
         return loss
-
+        
+#  Transformers의 Trainer를 상속받아 손실 계산만 바꾼 버전
 class CustomTrainer(Trainer):
     def __init__(self, use_focal=False, class_weights=None, **kwargs):
         super().__init__(**kwargs)
         self.use_focal = use_focal
         self.class_weights = class_weights
 
+    # 모델 출력 로짓과 라벨을 (배치*길이) 평탄화
     def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
         labels = inputs.pop("labels")
         outputs = model(**inputs)
@@ -133,6 +138,7 @@ class CustomTrainer(Trainer):
 # =========================
 # Data utils
 # =========================
+# 입력 JSONL의 tokens/labels가 리스트/딕셔너리/문자열 등 섞여도 리스트[str]로 통일
 def normalize_tokens(toks):
     # 기대형태: list[str]
     if isinstance(toks, list):
@@ -163,7 +169,8 @@ def normalize_labels(labs):
         return labs.split()
     else:
         return [str(labs)]
-
+        
+# 원천 토큰/라벨 길이 차이 보정(O 패딩)
 def build_align_fn(tokenizer, max_length=512):
     def align_labels_with_tokens(batch):
         toks_batch, labs_batch = [], []
