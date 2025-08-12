@@ -562,14 +562,6 @@ def get_name():
     first_name = first_name.replace('-', ' ')
     last_name = last_name.replace('-', ' ')
 
-    # Normalize unicode characters
-    first_name = unicodedata.normalize(
-        'NFKD', first_name).encode(
-        'ascii', 'ignore').decode('utf-8')
-    last_name = unicodedata.normalize(
-        'NFKD', last_name).encode(
-        'ascii', 'ignore').decode('utf-8')
-
     return first_name, last_name, faker
 
 
