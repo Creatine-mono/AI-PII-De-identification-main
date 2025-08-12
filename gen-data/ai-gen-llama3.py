@@ -384,9 +384,9 @@ if __name__ == '__main__':
     df['model'] = CFG.model
     
 # 저장 파일 경로 지정 (파일명 포함)
-save_gen_filename = "placeholder/output.csv"  
+save_gen_filename = "output.csv"  
 # 전체 저장 경로 구성
-full_save_path = Path(CFG.gen_dir) / 'placeholder' / save_gen_filename
+full_save_path = Path(CFG.gen_dir) / save_gen_filename
 
 # 필요한 상위 디렉토리까지 전부 생성
 full_save_path.parent.mkdir(parents=True, exist_ok=True)
