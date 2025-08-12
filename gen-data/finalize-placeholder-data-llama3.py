@@ -6,6 +6,7 @@ import random
 import re
 from typing import List
 import string
+from kiwipiepy import Kiwi
 # Add project root to Python path for package imports
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
@@ -14,17 +15,30 @@ if str(project_root) not in sys.path:
 from src.gendata_placeholder_mistral import (split_model_response,
                                             pii_total_uniques,
                                             pii_placeholders_cleaned,
-                                            tokenize_with_spacy,
                                             token_labels,
                                             inject_pii,
                                             verify_df)
 random.seed(42)
 
+# 한국어 형태소 분
+kiwi = Kiwi()
+
+def tokenize_with_spacy(text: str):
+    tokens = []
+    trailing_ws = []
+    n = len(text)
+    for tok in kiwi.tokenize(text):
+        start = tok.start
+        end = tok.start + tok.len   
+        tokens.append(tok.form)
+        trailing_ws.append(end < n and text[end].isspace())
+    return tokens, trailing_ws
+
 
 if __name__ == '__main__':
     # Inputs
     save_path = Path(os.getenv('DATA_DIR')) / \
-        'mdd-gen/llama3_placeholder_2.3K_v0.jsonl'
+        'mdd-gen/llama3_placeholder_10K_v0.jsonl'
     pii_data_path = Path(os.getenv('GEN_DIR')) / 'pii_syn_data.csv'
     SPLIT_PERCENT = 1.0
     THRESHOLD = 0.70
@@ -69,10 +83,6 @@ if __name__ == '__main__':
     df['pii_ratio'] = df['num_pii_fields_identified'] / \
         df['num_pii_fields_requested']
 
-    # Drop samples below a pii-ratio
-    df = df[df.pii_ratio >= THRESHOLD].reset_index(drop=True)
-    print(f'Num. Samples: {len(df):,}')
-
     # 빈 데이터 가드
     df = df[df.pii_ratio >= THRESHOLD].reset_index(drop=True)
     print(f'Num. Samples: {len(df):,}')
@@ -84,9 +94,10 @@ if __name__ == '__main__':
     if 'file_name' not in df.columns:
         df['file_name'] = [f"{DOC_PREFIX}_src_{i}" for i in range(len(df))]
 
-    # Spacy tokenizer and trailing whitespaces
+    
     df['tokens'], df['trailing_whitespace'] = zip(
-        *df.full_text.apply(tokenize_with_spacy))
+    *df['full_text'].map(tokenize_with_spacy)
+    )
 
     # Load PII Data
     df_pii = pd.read_csv(pii_data_path)
@@ -137,7 +148,6 @@ if __name__ == '__main__':
         text = ''.join(text)
 
         # Aggregate results
-        cols_agg = ['tokens', 'trailing_whitespace', 'label']
         tmp = (gen_pii.groupby('file_name')
                .agg({"tokens": lambda x: x.tolist(),
                      "trailing_whitespace": lambda x: x.tolist(),
