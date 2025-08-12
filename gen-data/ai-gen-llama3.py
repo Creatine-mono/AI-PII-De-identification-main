@@ -48,12 +48,29 @@ def clear_memory():
 
 
 def load_model(model_path: str, *, quantize: bool = False):
-    model_pipeline = transformers.pipeline(
-        "text-generation",
+    # OFFLINE이면 캐시/로컬 모델이 반드시 존재해야 함
+    offline = os.getenv("TRANSFORMERS_OFFLINE") == "1"
+
+    use_cuda = torch.cuda.is_available()
+    torch_dtype = torch.bfloat16 if use_cuda else torch.float32
+
+    pipe = transformers.pipeline(
+        task="text-generation",
         model=model_path,
-        model_kwargs={"torch_dtype": torch.bfloat16},
-        device="cuda",)
-    return model_pipeline
+        tokenizer=model_path,
+        device_map="auto" if use_cuda else None,   # GPU 자동 매핑
+        model_kwargs={"torch_dtype": torch_dtype},
+        trust_remote_code=True
+    )
+
+    # 토크나이저 기본세팅(배치 안정화)
+    tok = pipe.tokenizer
+    tok.padding_side = "left"  # causal LM 배치에 유리
+    if tok.pad_token_id is None and tok.eos_token_id is not None:
+        tok.pad_token_id = tok.eos_token_id
+
+    return pipe
+
     
 def generate_texts(pipeline, generated_df, path_save, batch_size=8):
     """배치 처리로 텍스트 생성"""
