@@ -33,7 +33,7 @@ print(f"Pytorch {torch.__version__}")
 # Seed the same seed to all
 libc = ctypes.CDLL("libc.so.6")
 
-
+# 시드 고정 함수
 def seed_everything(*, seed=42):
     Faker.seed(seed)
     random.seed(seed)
@@ -41,12 +41,14 @@ def seed_everything(*, seed=42):
     torch.manual_seed(seed)
 
 
+# 메모리 관리 함수
 def clear_memory():
     libc.malloc_trim(0)
     torch.cuda.empty_cache()
     gc.collect()
 
 
+# 모델 로드 함수
 def load_model(model_path: str, *, quantize: bool = False):
     model_pipeline = transformers.pipeline(
         "text-generation",
@@ -56,54 +58,6 @@ def load_model(model_path: str, *, quantize: bool = False):
     return model_pipeline
 
 
-def generate_texts(pipeline, generated_df, path_save):
-
-    # Generate the texts
-    for i in tqdm(range(len(generated_df))):
-        start = time.time()
-        # Get the prompt
-        prompt = generated_df.prompt.iloc[i]
-        max_new_tokens = generated_df['max_new_tokens'].iloc[i]
-        temperature = generated_df['temperature'].iloc[i]
-        top_p = generated_df['top_p'].iloc[i]
-        top_k = int(generated_df['top_k'].iloc[i])
-        repeat_penalty = generated_df['repetition_penalty'].iloc[i]
-        file_name = generated_df['file_name'].iloc[i]
-        writing_style = generated_df['writing_style'].iloc[i]
-        fields_used = generated_df['fields_used'].iloc[i]
-
-        # Tokenize the prompt
-        prompt = pipeline.tokenizer.apply_chat_template(
-            prompt,
-            tokenize=False,
-            add_generation_prompt=True
-        )
-
-        terminators = [
-            pipeline.tokenizer.eos_token_id,
-            pipeline.tokenizer.convert_tokens_to_ids("<|eot_id|>")
-        ]
-
-        # Generate the outputs from prompt
-        outputs = pipeline(
-            prompt,
-            max_new_tokens=max_new_tokens,
-            eos_token_id=terminators,
-            do_sample=True,
-            temperature=temperature,
-        )
-        # print(outputs[0]["generated_text"][len(prompt):])
-        generated_df.loc[i, 'generated_text'] = outputs[0]["generated_text"]
-
-        # Partial save of data
-        if i % 5 == 0:
-            generated_df.to_csv(path_save, index=False, encoding="UTF-8")
-        print(
-            f"Complete the text for {i}-th student {time.time() - start: .1f} seconds")
-    # Save generated_df to csv
-    generated_df.to_csv(path_save, index=False, encoding="UTF-8")
-    print(f'Saved at: {path_save}')
-    
 def generate_texts(pipeline, generated_df, path_save, batch_size=8):
     """배치 처리로 텍스트 생성"""
 
@@ -386,7 +340,7 @@ if __name__ == '__main__':
 # 저장 파일 경로 지정 (파일명 포함)
 save_gen_filename = "output.csv"  
 # 전체 저장 경로 구성
-full_save_path = Path(CFG.gen_dir) / save_gen_filename
+full_save_path = Path(CFG.gen_dir) / "placeholder"/ save_gen_filename
 
 # 필요한 상위 디렉토리까지 전부 생성
 full_save_path.parent.mkdir(parents=True, exist_ok=True)
