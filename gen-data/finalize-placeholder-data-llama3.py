@@ -125,7 +125,7 @@ if __name__ == '__main__':
             pii_placeholders=pii_placeholders)
 
         # Apply competition label names
-        gen_pii['label'] = gen_pii['label'].str.replace('-YOUR_NAME', '-NAME_STUDENT', regex=False)
+        gen_pii['label'] = gen_pii['label'].str.replace('-YOUR_NAME', '-NAME', regex=False)
         gen_pii['label'] = gen_pii['label'].str.replace('-IDENTIFICATION_NUM', '-ID_NUM', regex=False)
 
         # Create full text with pii filled-in
