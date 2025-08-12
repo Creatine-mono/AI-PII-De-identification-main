@@ -681,7 +681,7 @@ with open('./gen-data/top-domains.txt', 'r') as file:
     EMAIL_DOMAINS = EMAIL_DOMAINS.split('\n')
 
 # Create Syn. PII Data
-TOTAL = 4000  # Generate 10,000
+TOTAL = 10000  # Generate 10,000
 students = []
 for i in tqdm(range(TOTAL)):
     students.append(generate_student_info())
