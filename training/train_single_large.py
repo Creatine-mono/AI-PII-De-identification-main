@@ -366,7 +366,7 @@ def main():
         logging_strategy="steps",
         logging_steps=50,
     
-        eval_strategy="steps",,               # ← eval_strategy → evaluation_strategy
+        eval_strategy="steps",            # ← eval_strategy → evaluation_strategy
         eval_steps=200,                            # 학습 크기에 맞춰 100~500 사이로
         save_strategy="steps",
         save_steps=200,
