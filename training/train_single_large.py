@@ -21,6 +21,7 @@ from transformers import (
     DataCollatorForTokenClassification,
     TrainingArguments,
     Trainer,
+    EarlyStoppingCallback,
 )
 from huggingface_hub import HfApi, create_repo
 import wandb
