@@ -49,9 +49,7 @@ def tokenize_with_spacy(text: str):
         trailing_ws.append(end < n and text[end:end+1].isspace())
     return tokens, trailing_ws
 
-# 위쪽 import에 이미 있으니 유지
-# import unicodedata, re
-
+# 빈 문자열 오류 방지
 try:
     from src.gendata_placeholder_mistral import pii_placeholders_cleaned as _pii_clean
 except Exception:
