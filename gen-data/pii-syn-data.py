@@ -543,25 +543,21 @@ def generate_email(first_name, last_name, faker, algo):
 
 
 def get_name():
-    # Select the student country to generate the user info based on the country
-    COUNTRIES = ["ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
-                 "ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
-                 "ko_KR", "ko_KR", "ko_KR", "ko_KR", "ko_KR",
-                 "ko_KR", "ko_KR", "ko_KR"]
-    faker = Faker(random.choice(COUNTRIES))
+    """
+    Faker 라이브러리를 사용해 한국어 성(last_name)과 이름(first_name)을 생성합니다.
+    """
+    # 'ko_KR' 로케일을 사용하여 한국어 이름 생성기를 만듭니다.
+    faker = Faker("ko_KR")
 
-    # Faker를 통해서만 이름 생성 (real_name 파일 사용 제거)
-    if random.random() >= 0.25:
-        first_name = faker.first_name()
-        last_name = faker.last_name()
-    else:
-        first_name = faker.first_name() + ' ' + faker.last_name()
-        last_name = faker.last_name()
+    # 성과 이름을 각각 생성합니다.
+    first_name = faker.first_name()
+    last_name = faker.last_name()
 
-    # Remove special characters
+    # 이름에 포함될 수 있는 하이픈(-)을 공백으로 바꿉니다. (이 부분은 필요에 따라 유지)
     first_name = first_name.replace('-', ' ')
     last_name = last_name.replace('-', ' ')
 
+    # 생성된 이름, 성, faker 객체를 반환합니다.
     return first_name, last_name, faker
 
 
