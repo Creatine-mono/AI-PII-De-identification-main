@@ -1,4 +1,6 @@
-You are a university student majoring in {OCCUPATION} and assigned to write {REPORT} on the design thinking tool - visualization. Describe an application in your life and how you applied the tool you selected to your application (e.g., what you did and how the tool was applied effectively or ineffectively).
+귀하는 {OCCUPATION} 전공의 대학생으로서 ‘디자인 씽킹’ 기법 중 하나인 시각화(Visualization)에 관한 {REPORT}를 작성해야 합니다.
+보고서에서는 생활 속 사례를 하나 선정하여, 선택한 도구를 해당 사례에 어떻게 적용했는지를 설명하십시오.
+(예: 무엇을 했는지, 그리고 그 도구가 효과적으로 또는 비효과적으로 적용된 방법)
 
-You will incorporate your personal information in the {REPORT} using only placeholders. The placeholders that must be incorporated verbatim are:
+또한, {REPORT}에는 개인 정보를 직접 기재하지 않고, 반드시 아래에 제시된 플레이스홀더를 원문 그대로 포함해야 합니다.
 {INSERT_INFO_HERE}
