@@ -49,49 +49,63 @@ def tokenize_with_spacy(text: str):
         trailing_ws.append(end < n and text[end:end+1].isspace())
     return tokens, trailing_ws
 
-# ⬇️ 모듈에 동일 함수가 없을 때를 위한 안전한 fallback 구현
+# 위쪽 import에 이미 있으니 유지
+# import unicodedata, re
+
+try:
+    from src.gendata_placeholder_mistral import pii_placeholders_cleaned as _pii_clean
+except Exception:
+    _pii_clean = None
+
 def pii_placeholders_cleaned(pii_phs, text, *args, **kwargs):
     """
-    중괄호 자리표시자 { ... }를 정리(clean-up)한다.
-    - NFKC 정규화, BOM/선행공백 제거
-    - {{ ... }} 같은 중복 중괄호 정리
-    - { Phone-Num } -> {PHONE_NUM} 처럼 대소문자/문자 정규화
-    - pii_phs 목록에 있는 placeholder만 확정적으로 정규화
+    안전 래퍼:
+    1) NFKC 정규화, BOM/선행공백 제거
+    2) 비어 있으면 즉시 ""
+    3) 원본 함수가 있으면 호출하되, IndexError 등 나오면 로컬 폴백
+    4) 로컬 폴백: { ... } 자리표시자 정리
     """
-    # 모듈에 원본 함수가 있으면 그걸 우선 사용
-    if _pii_clean is not None:
-        return _pii_clean(pii_phs, text, *args, **kwargs)
-
-    # 이하 로컬 fallback
+    # 1) 문자열 정규화
     s = "" if text is None else str(text)
     s = unicodedata.normalize("NFKC", s).lstrip("\ufeff \t\r\n")
+
+    # 2) 비어 있으면 즉시 반환 → 원본 호출 안 함
     if not s:
         return ""
 
-    # 전각 중괄호 -> 반각
+    # 3) 원본 함수가 있으면 먼저 시도 (하지만 빈 문자열은 여기까지 못 옴)
+    if _pii_clean is not None:
+        try:
+            return _pii_clean(pii_phs, s, *args, **kwargs)
+        except IndexError:
+            # 원본이 여전히 text[0] 인덱싱 등으로 터지면 폴백 사용
+            pass
+        except Exception:
+            # 다른 예외도 폴백
+            pass
+
+    # 4) 로컬 폴백 로직
+    ph_set = {p.upper() for p in (pii_phs or [])}
+
+    # 전각 중괄호 → 반각
     s = s.replace("｛", "{").replace("｝", "}")
 
-    # {{ ... }} → { ... } 정리
+    # {{ ... }} → { ... }
     s = re.sub(r"\{\{+\s*", "{", s)
     s = re.sub(r"\s*\}\}+", "}", s)
-
-    # 허용 placeholder 집합 (대문자 기준)
-    ph_set = {p.upper() for p in (pii_phs or [])}
 
     # {   something messy   } → {CLEANED_NAME}
     def _repl(m):
         inner = m.group(1)
-        # 특수문자/공백 -> '_'로, 양끝 '_' 제거, 대문자
         cleaned = re.sub(r"[^A-Za-z0-9_]+", "_", inner).strip("_").upper()
-        # 목록에 있는 placeholder면 확정 정규화
         if cleaned in ph_set:
             return "{" + cleaned + "}"
-        # 목록에 없으면 그래도 정규화된 형태로 교체(필요시 여기서 원문 유지로 바꿔도 됨)
         return "{" + cleaned + "}" if cleaned else m.group(0)
 
-    # 중괄호 안의 내용을 최대 64자 정도로 제한해 과도치 매칭 방지
+    # 과도 매칭 방지(최대 64자)
     s = re.sub(r"\{\s*([^{}]{1,64})\s*\}", _repl, s)
     return s
+
 
 
 if __name__ == '__main__':
