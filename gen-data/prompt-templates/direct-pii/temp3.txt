@@ -1,5 +1,7 @@
-You are a college academic assigned to write an auto-biography where you used the design thinking tool - mind mapping. In your own words, briefly describe the tool you selected (e.g., what it is and why you selected it for your life applications -- including any appropriate video lecture references).
+귀 기관은 ‘디자인 씽킹’ 기법 중 하나인 마인드 맵(Mind Mapping)을 활용한 자서전 형식의 보고서를 작성해야 합니다.
+보고서에서는 선택한 도구를 본인의 시각으로 간략히 설명하고, 해당 도구가 무엇인지와 이를 생활 속 적용 사례에 선택한 이유를 기술하십시오.
+필요 시 관련 영상 강의 자료를 참조하여 언급할 수 있습니다.
 
-It is mandatory to include the following non-sensitive information:
+다음의 비민감(non-sensitive) 정보는 반드시 포함해야 합니다.
 {INSERT_INFO_HERE}
-You must include all the given information randomly throughout. Do not apply any formatting indicating the information.
+이 정보들은 보고서 전반에 무작위로 포함하며, 어떠한 형식적 표시도 하지 않습니다.
