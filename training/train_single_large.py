@@ -51,6 +51,19 @@ id2label = {i: lab for i, lab in enumerate(ALL_LABELS)}
 # 문자열 -> 정수
 label2id = {lab: i for i, lab in id2label.items()}
 
+# [ADD] 정규식만으로 탐지 어려운 엔티티 집합
+REGEX_HARD_ENTS = {
+    "NAME", "ORGANIZATION_NAME", "USERNAME",
+    "PASSWORD", "DATE_OF_BIRTH", "ID_NUM",
+    "STREET_ADDRESS", "BANKING_NUMBER",
+}
+
+# [ADD] BIO → 엔티티명
+def bio2ent(tag: str) -> str:
+    if tag == "O" or not isinstance(tag, str):
+        return "O"
+    return tag.split("-", 1)[1] if "-" in tag else tag
+
 def seed_everything(seed: int = 42):
     random.seed(seed)
     np.random.seed(seed)
@@ -63,28 +76,61 @@ def seed_everything(seed: int = 42):
 # 스팬 기반이 아니라 토큰 레벨 F1(일반 NER) 기준. 필요 시 스팬 매칭으로 바꿔도 됨.
 from seqeval.metrics import precision_score, recall_score, f1_score, accuracy_score
 
-def compute_metrics_fn(eval_pred):
-    preds, labels = eval_pred
-    preds = np.argmax(preds, axis=-1)
+def make_compute_metrics(focus_ents: set[str]):
+    def _compute(eval_pred):
+        preds, labels = eval_pred
+        preds = np.argmax(preds, axis=-1)
 
-    # -100 제거하고 라벨명으로 변환
-    true_labels, true_preds = [], []
-    for p, l in zip(preds, labels):
-        tl, tp = [], []
-        for pi, li in zip(p, l):
-            if li == -100:
-                continue
-            tl.append(id2label[li])
-            tp.append(id2label[pi])
-        true_labels.append(tl)
-        true_preds.append(tp)
+        # id ↔ label 복원
+        true_labels, true_preds = [], []
+        for p, l in zip(preds, labels):
+            tl, tp = [], []
+            for pi, li in zip(p, l):
+                if li == -100:   # 특수토큰 무시
+                    continue
+                tl.append(id2label[li])
+                tp.append(id2label[pi])
+            true_labels.append(tl)
+            true_preds.append(tp)
 
-    precision = precision_score(true_labels, true_preds)
-    recall = recall_score(true_labels, true_preds)
-    f1 = f1_score(true_labels, true_preds)
-    acc = accuracy_score(true_labels, true_preds)
+        # 전체 지표(참고용)
+        out = {
+            "precision": precision_score(true_labels, true_preds),
+            "recall":    recall_score(true_labels, true_preds),
+            "f1":        f1_score(true_labels, true_preds),
+            "accuracy":  accuracy_score(true_labels, true_preds),
+        }
 
-    return {"precision": precision, "recall": recall, "f1": f1, "accuracy": acc}
+        # ── 핵심: 정규식 어려운 엔티티만 평가 ──
+        def mask_seq(seq):
+            return [tag if bio2ent(tag) in focus_ents else "O" for tag in seq]
+
+        f_true = [mask_seq(s) for s in true_labels]
+        f_pred = [mask_seq(s) for s in true_preds]
+
+        out.update({
+            "regexhard_precision": precision_score(f_true, f_pred),
+            "regexhard_recall":    recall_score(f_true, f_pred),
+            "regexhard_f1":        f1_score(f_true, f_pred),
+            "regexhard_accuracy":  accuracy_score(f_true, f_pred),
+        })
+
+        # (선택) 관심 엔티티 토큰만 본 토큰 정확도
+        correct = total = 0
+        for tl, tp in zip(true_labels, true_preds):
+            for t_tag, p_tag in zip(tl, tp):
+                if bio2ent(t_tag) in focus_ents and t_tag != "O":
+                    total += 1
+                    if t_tag == p_tag:
+                        correct += 1
+        out["regexhard_token_acc"] = (correct / total) if total else 0.0
+
+        return out
+    return _compute
+
+# [ADD] 평가 함수 인스턴스 (정규식 어려운 엔티티 전용)
+compute_metrics = make_compute_metrics(REGEX_HARD_ENTS)
+
 
 # =========================
 # Loss (옵션): Focal
@@ -341,7 +387,7 @@ def main():
         eval_dataset=ds_val,
         data_collator=collator,
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics_fn,
+        compute_metrics=compute_metrics,      # ← 여기!
         use_focal=args.use_focal,
         class_weights=class_weights_t,
     )
