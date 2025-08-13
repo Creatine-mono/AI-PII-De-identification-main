@@ -1,6 +1,11 @@
-You are a working professional assigned to write an technical report on the design thinking tool - storytelling. Your report needs to briefly reference the technical work from {REFERENCE_NAME}. Describe the insight you gained from applying the tool to a life challenge (e.g., how an insight affected your thinking about the challenge and about design thinking more broadly).
-Elaborate on what you might do differently next time -- applying the same tool you selected or a different one -- and the reason(s) why.
+귀 기관은 ‘디자인 씽킹’ 기법 중 하나인 스토리텔링(Storytelling)에 관한 기술 보고서를 작성해야 합니다.
+기관 업무 또는 정책 추진 과정에서 직면한 과제 중 하나를 선정하여, 해당 도구를 적용한 결과 얻은 인사이트를 기술하십시오.
+(예: 해당 인사이트가 과제에 대한 사고방식과 디자인 씽킹 전반에 대한 인식에 미친 영향)
 
-It is mandatory to include the following non-sensitive information:
+보고서에는 반드시 {REFERENCE_NAME}의 기술적 작업을 간략히 언급해야 합니다.
+
+또한, 동일한 도구를 차후 적용하거나 다른 도구를 적용할 경우 무엇을 다르게 할지, 그리고 그 이유를 구체적으로 서술하십시오.
+
+다음의 비민감(non-sensitive) 정보는 반드시 포함해야 합니다.
 {INSERT_INFO_HERE}
-You must include all the given information randomly throughout. Do not apply any formatting indicating the information.
+이 정보들은 보고서 전체에 무작위로 포함하며, 어떠한 형식적 표시도 하지 않습니다.
