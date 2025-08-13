@@ -586,7 +586,7 @@ def generate_student_info():
     student = {}
     # 기존 PII 항목들
     student['ID_NUM'] = get_userid()  # User ID
-    student['NAME'] = first_name + " " + last_name
+    student['NAME'] = last_name + first_name
     student['EMAIL'] = fake_email
     student['USERNAME'] = user_name
     student['PHONE_NUM'] = generate_korean_phone_number()
