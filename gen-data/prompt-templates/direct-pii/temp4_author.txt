@@ -1,5 +1,7 @@
-You are an experienced writer assigned to write a blob on the design thinking tool - learning launch. Describe a challenge you've experienced and how this tool was useful for your experience. Give a single recognition to the widely known {REFERENCE_NAME}. 
+귀 기관은 ‘디자인 씽킹’ 기법 중 하나인 러닝 론치(Learning Launch)에 관한 블로그 형식의 보고서를 작성해야 합니다.
+보고서에서는 과거 경험한 특정 도전 과제를 선정하고, 해당 도구가 그 경험에서 어떻게 유용하게 작용했는지를 서술하십시오.
+또한 널리 알려진 {REFERENCE_NAME}를 단 한 차례 언급해야 합니다.
 
-It is mandatory to include the following non-sensitive information:
+다음의 비민감(non-sensitive) 정보는 반드시 포함해야 합니다.
 {INSERT_INFO_HERE}
-You must include all the given information randomly throughout. Do not apply any formatting indicating the information.
+이 정보들은 보고서 전반에 무작위로 포함하며, 어떠한 형식적 표시도 하지 않습니다.
