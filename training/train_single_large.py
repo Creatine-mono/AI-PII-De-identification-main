@@ -354,29 +354,38 @@ def main():
         output_dir=f"./results/{run_name}",
         per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum,
-        num_train_epochs=args.epochs,
-        learning_rate=args.lr,
-        warmup_ratio=args.warmup_ratio,
-        weight_decay=args.weight_decay,
-        fp16=torch.cuda.is_available(),
-
+        num_train_epochs=5,                         # ← 우선 5로 올려보고(3→5), 얼리스톱으로 안전장치
+        learning_rate=args.lr,                     # 2e-5 유지, 필요시 1e-5/3e-5 소그리드
+        warmup_ratio=0.06,                         # 0.05 → 0.06~0.1 권장
+        weight_decay=0.01,
+    
+        # 혼합정밀: bf16 우선, 안되면 fp16
+        bf16=getattr(torch.cuda, "is_bf16_supported", lambda: False)(),
+        fp16=(not getattr(torch.cuda, "is_bf16_supported", lambda: False)()),
+    
         logging_strategy="steps",
-        logging_steps=10,
-
-        eval_strategy="steps",  # ← 중요!
-        eval_steps=50,                # ← 중요!
-
+        logging_steps=50,
+    
+        evaluation_strategy="steps",               # ← eval_strategy → evaluation_strategy
+        eval_steps=200,                            # 학습 크기에 맞춰 100~500 사이로
         save_strategy="steps",
-        save_steps=50,
+        save_steps=200,
         save_total_limit=2,
-
+    
         load_best_model_at_end=True,
-        metric_for_best_model="f1",
+        metric_for_best_model="regexhard_f1",      # ← 정규식-어려운 엔티티 기준으로 베스트 선택
         greater_is_better=True,
-
+    
+        lr_scheduler_type="cosine",                # ← 코사인 스케줄러
+        label_smoothing_factor=0.1,                # ← 라벨 스무딩
+        max_grad_norm=1.0,
+    
         report_to=["wandb"],
         push_to_hub=bool(hf_repo_id is not None),
         hub_model_id=hf_repo_id if hf_repo_id else None,
+    
+        group_by_length=True,                      # 패딩 줄여 안정성/속도 ↑
+        optim="adamw_torch_fused",                 # PyTorch 2.x + CUDA에서 속도/안정 ↑
     )
 
     # -------- Trainer --------
@@ -390,6 +399,10 @@ def main():
         compute_metrics=compute_metrics,      # ← 여기!
         use_focal=args.use_focal,
         class_weights=class_weights_t,
+        callbacks=[EarlyStoppingCallback(
+        early_stopping_patience=3,             # 3번 연속 개선 없으면 스톱
+        early_stopping_threshold=1e-4          # 개선 최소 폭
+    )],
     )
 
     # -------- Train --------
