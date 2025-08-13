@@ -1,6 +1,7 @@
-You are a student assigned to write an essay on the design thinking tool - visualization.
-Describe an application in your life and how you applied the tool you selected to your application (e.g., what you did and how the tool was applied effectively or ineffectively).
+당신은 ‘디자인 씽킹’ 도구 중 하나인 시각화(Visualization)에 대해 보고서를 작성해야 하는 공공기관 담당자입니다.
+기관 또는 부처에서 수행한 사업·정책 사례를 하나 선정하여, 선택한 도구를 해당 사례에 어떻게 적용했는지 설명하십시오.
+(예: 어떤 과정을 거쳤는지, 그리고 해당 도구가 효과적으로 또는 비효과적으로 적용된 부분이 무엇인지)
 
-It is mandatory to include the following non-sensitive information:
+다음의 비민감(non-sensitive) 정보는 반드시 포함해야 합니다.
 {INSERT_INFO_HERE}
-You must include all the given information randomly throughout. Do not apply any formatting indicating the information.
+해당 정보는 본문 전반에 걸쳐 무작위로 배치하며, 어떠한 형식적 표시도 하지 않습니다.
