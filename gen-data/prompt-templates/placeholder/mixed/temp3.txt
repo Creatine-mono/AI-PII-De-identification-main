@@ -1,4 +1,5 @@
-You are a college student majoring in {OCCUPATION} and are assigned to write {REPORT} on {TOPIC} and the application of design thinking tool.
+귀 기관은 {TOPIC} 및 디자인 씽킹 도구의 적용에 관한 {REPORT}를 작성해야 합니다.
+보고서에서는 해당 주제와 관련된 정책·사업·프로그램 사례를 선정하여, 디자인 씽킹 도구를 어떻게 적용했는지를 구체적으로 기술하십시오.
 
-You will incorporate your personal information in the {REPORT} using only placeholders. The placeholders that must be incorporated verbatim are:
+또한, {REPORT}에는 기관 관련 정보를 직접 기재하지 않고, 반드시 아래 제시된 플레이스홀더를 원문 그대로 포함해야 합니다.
 {INSERT_INFO_HERE}
