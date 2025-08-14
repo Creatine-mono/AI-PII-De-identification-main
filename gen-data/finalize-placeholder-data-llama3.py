@@ -70,6 +70,21 @@ def pii_placeholders_cleaned(pii_phs, text, *args, **kwargs):
     # 2) 비어 있으면 즉시 반환 → 원본 호출 안 함
     if not s:
         return ""
+    
+    PH_MAP_TO_CSV = {
+        'YOUR_NAME': 'NAME',
+        'IDENTIFICATION_NUM': 'ID_NUM',
+    }
+    
+    def normalize_ph_list(ph_list):
+        return [PH_MAP_TO_CSV.get(p, p) for p in ph_list or []]
+    
+    def normalize_placeholders_in_text(s: str) -> str:
+        if not isinstance(s, str):
+            return s
+        for k, v in PH_MAP_TO_CSV.items():
+            s = s.replace('{' + k + '}', '{' + v + '}')
+        return s
 
     # 3) 원본 함수가 있으면 먼저 시도 (하지만 빈 문자열은 여기까지 못 옴)
     if _pii_clean is not None:
@@ -138,13 +153,18 @@ if __name__ == '__main__':
             return []
         return [s.strip() for s in str(v).split(',') if s.strip()]
     df['fields_used'] = df['fields_used_str'].apply(_split_fields)
-    pii_placeholders = list(df['fields_used'].explode().dropna().unique())
+    pii_placeholders = list(
+    pd.Series(df['fields_used'].apply(normalize_ph_list)).explode().dropna().unique())
+
 
     # Clean up messy placeholder names between curly braces
     df['full_text'] = df.apply(
-        lambda x: pii_placeholders_cleaned(pii_phs=x.fields_used, text=x.gen_response),
+        lambda x: pii_placeholders_cleaned(pii_phs=normalize_ph_list(x.fields_used), text=x.gen_response),
         axis=1
     )
+    df['full_text'] = df['full_text'].map(normalize_placeholders_in_text)
+
+
 
     # Count number of pii-placeholders inserted by LLM
     df['num_pii_fields_requested'] = df.fields_used.apply(lambda x: len(x))
