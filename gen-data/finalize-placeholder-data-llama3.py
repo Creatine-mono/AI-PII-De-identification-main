@@ -54,7 +54,22 @@ try:
     from src.gendata_placeholder_mistral import pii_placeholders_cleaned as _pii_clean
 except Exception:
     _pii_clean = None
+    
+# 1) 전역에 매핑/함수 정의
+PH_MAP_TO_CSV = {
+    'YOUR_NAME': 'NAME',
+    'IDENTIFICATION_NUM': 'ID_NUM',
+}
 
+def normalize_ph_list(ph_list):
+    return [PH_MAP_TO_CSV.get(p, p) for p in (ph_list or [])]
+
+def normalize_placeholders_in_text(s: str) -> str:
+    if not isinstance(s, str):
+        return s
+    for k, v in PH_MAP_TO_CSV.items():
+        s = s.replace('{' + k + '}', '{' + v + '}')
+    return s
 def pii_placeholders_cleaned(pii_phs, text, *args, **kwargs):
     """
     안전 래퍼:
@@ -103,22 +118,6 @@ def pii_placeholders_cleaned(pii_phs, text, *args, **kwargs):
     # 과도 매칭 방지(최대 64자)
     s = re.sub(r"\{\s*([^{}]{1,64})\s*\}", _repl, s)
     return s
-
-    PH_MAP_TO_CSV = {
-        'YOUR_NAME': 'NAME',
-        'IDENTIFICATION_NUM': 'ID_NUM',
-    }
-    
-    def normalize_ph_list(ph_list):
-        return [PH_MAP_TO_CSV.get(p, p) for p in ph_list or []]
-    
-    def normalize_placeholders_in_text(s: str) -> str:
-        if not isinstance(s, str):
-            return s
-        for k, v in PH_MAP_TO_CSV.items():
-            s = s.replace('{' + k + '}', '{' + v + '}')
-        return s
-
 
 
 if __name__ == '__main__':
