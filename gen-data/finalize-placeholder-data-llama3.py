@@ -70,21 +70,6 @@ def pii_placeholders_cleaned(pii_phs, text, *args, **kwargs):
     # 2) 비어 있으면 즉시 반환 → 원본 호출 안 함
     if not s:
         return ""
-    
-    PH_MAP_TO_CSV = {
-        'YOUR_NAME': 'NAME',
-        'IDENTIFICATION_NUM': 'ID_NUM',
-    }
-    
-    def normalize_ph_list(ph_list):
-        return [PH_MAP_TO_CSV.get(p, p) for p in ph_list or []]
-    
-    def normalize_placeholders_in_text(s: str) -> str:
-        if not isinstance(s, str):
-            return s
-        for k, v in PH_MAP_TO_CSV.items():
-            s = s.replace('{' + k + '}', '{' + v + '}')
-        return s
 
     # 3) 원본 함수가 있으면 먼저 시도 (하지만 빈 문자열은 여기까지 못 옴)
     if _pii_clean is not None:
@@ -118,6 +103,21 @@ def pii_placeholders_cleaned(pii_phs, text, *args, **kwargs):
     # 과도 매칭 방지(최대 64자)
     s = re.sub(r"\{\s*([^{}]{1,64})\s*\}", _repl, s)
     return s
+
+    PH_MAP_TO_CSV = {
+        'YOUR_NAME': 'NAME',
+        'IDENTIFICATION_NUM': 'ID_NUM',
+    }
+    
+    def normalize_ph_list(ph_list):
+        return [PH_MAP_TO_CSV.get(p, p) for p in ph_list or []]
+    
+    def normalize_placeholders_in_text(s: str) -> str:
+        if not isinstance(s, str):
+            return s
+        for k, v in PH_MAP_TO_CSV.items():
+            s = s.replace('{' + k + '}', '{' + v + '}')
+        return s
 
 
 
