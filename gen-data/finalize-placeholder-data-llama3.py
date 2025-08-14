@@ -169,7 +169,6 @@ if __name__ == '__main__':
 
     # Load PII Data
     df_pii = pd.read_csv(pii_data_path)
-    df_pii.rename(columns={'NAME': 'YOUR_NAME', 'ID_NUM': 'IDENTIFICATION_NUM'}, inplace=True)
 
     available = [c for c in pii_placeholders if c in df_pii.columns]
     missing   = [c for c in pii_placeholders if c not in df_pii.columns]
