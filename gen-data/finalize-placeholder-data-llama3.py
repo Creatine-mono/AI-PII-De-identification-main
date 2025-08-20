@@ -306,7 +306,7 @@ if __name__ == '__main__':
     if DEBUG:
         verify_df(df=df_final.copy())
     print(f'df_final.shape: {df_final.shape}')
-    df_final = df_final[['document', 'full_text', 'tokens', 'trailing_whitespace', 'labels']]
+    df_final = df_final[['document', 'full_text', 'tokens', 'trailing_whitespace', 'label']]
     print(f'df_final.shape: {df_final.shape}')
 
     # Save to disk (레코드 지향 + 줄단위 + 한글 그대로)
