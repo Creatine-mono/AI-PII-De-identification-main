@@ -18,35 +18,56 @@ def _norm_ph(name: str) -> str:
     except NameError:
         return name
 
-def inject_pii_inline(gen_explode: pd.DataFrame, pii_row: pd.Series, pii_placeholders: list) -> pd.DataFrame:
-    rows = []
-    ph_set = set(pii_placeholders)
-    for t, ws, fname in zip(gen_explode["tokens"], gen_explode["trailing_whitespace"], gen_explode["file_name"]):
-        lab = "O"
-        m = PH_TOKEN.match(str(t))
-        if m:
-            raw = m.group(1)
-            ph = _norm_ph(raw)
-            if ph in ph_set and ph in pii_row.index:
-                value = "" if pd.isna(pii_row[ph]) else str(pii_row[ph])
-                if value:
-                    for i, ch in enumerate(value):
-                        rows.append({
-                            "file_name": fname,
-                            "tokens": ch,
-                            "trailing_whitespace": False if i < len(value) - 1 else ws,
-                            "label": f"B-{ph}" if i == 0 else f"I-{ph}",
-                        })
-                    continue
-        rows.append({
-            "file_name": fname,
-            "tokens": t,
-            "trailing_whitespace": ws,
-            "label": lab,
-        })
-    out = pd.DataFrame(rows)
-    assert len(out["tokens"]) == len(out["trailing_whitespace"]) == len(out["label"])
-    return out
+def inject_pii_inline(gen_explode, pii_placeholders, faker):
+    texts, tokens, whitespaces, labels = [], [], [], []
+
+    for row in gen_explode.itertuples():
+        text = row.text
+        label_seq = []
+        token_seq = []
+        ws_seq = []
+
+        for word in text.split():
+            if "CREDIT_CARD_INFO" in word:
+                fake_val = faker.credit_card_number()
+                for i, tok in enumerate(fake_val.split("-")):
+                    token_seq.append(tok)
+                    ws_seq.append(" ")
+                    label_seq.append("B-CREDIT_CARD" if i == 0 else "I-CREDIT_CARD")
+                text = text.replace("CREDIT_CARD_INFO", fake_val, 1)
+
+            elif "STREET_ADDRESS" in word:
+                fake_val = faker.address().split("\n")[0]
+                for i, tok in enumerate(fake_val.split()):
+                    token_seq.append(tok)
+                    ws_seq.append(" ")
+                    label_seq.append("B-ADDRESS" if i == 0 else "I-ADDRESS")
+                text = text.replace("STREET_ADDRESS", fake_val, 1)
+
+            elif "BANKING_NUMBER" in word:
+                fake_val = faker.bban()
+                for i, tok in enumerate(fake_val.split()):
+                    token_seq.append(tok)
+                    ws_seq.append(" ")
+                    label_seq.append("B-BANK" if i == 0 else "I-BANK")
+                text = text.replace("BANKING_NUMBER", fake_val, 1)
+
+            else:
+                token_seq.append(word)
+                ws_seq.append(" ")
+                label_seq.append("O")
+
+        texts.append(text)
+        tokens.append(token_seq)
+        whitespaces.append(ws_seq)
+        labels.append(label_seq)
+
+    return pd.DataFrame({
+        "full_text": texts,
+        "tokens": tokens,
+        "trailing_whitespace": whitespaces,
+        "labels": labels
+    })
 
 
 # Add project root to Python path for package imports
