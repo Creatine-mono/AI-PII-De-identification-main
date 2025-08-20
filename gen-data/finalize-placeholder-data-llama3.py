@@ -8,8 +8,7 @@ from typing import List
 import string
 import unicodedata
 from kiwipiepy import Kiwi
-import re
-import pandas as pd
+
 
 PH_TOKEN = re.compile(r"^\{?([A-Za-z0-9_]{1,64})\}?$")
 
@@ -249,13 +248,14 @@ if __name__ == '__main__':
     # Insert PII into Full Text
     df_final = None
     for ii in range(len(df)):
-        gen, pii = df.iloc[[ii]], get_pii_row(ii)
-        gen = gen.reset_index(drop=True)
+        gen = df.iloc[[ii]].reset_index(drop=True)
+        pii_row = get_pii_row(ii)
         gen_explode = gen.copy().explode(['tokens', 'trailing_whitespace']).reset_index(drop=True)
 
         # Incorporate PII into placeholders
         # (1) faker 주입 + 라벨 생성
-        gen_pii = inject_pii_inline(gen_explode=gen, pii_row=pii_row, pii_placeholders=pii_placeholders)
+        gen_pii = inject_pii_inline(gen_explode=gen_explode, pii_row=pii_row, pii_placeholders=pii_placeholders)
+
         
         # (2) 길이 가드
         assert len(gen_pii["tokens"]) == len(gen_pii["trailing_whitespace"]) == len(gen_pii["label"]), \
