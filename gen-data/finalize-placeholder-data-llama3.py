@@ -8,7 +8,7 @@ from typing import List
 import string
 import unicodedata
 from kiwipiepy import Kiwi
-from gen_data_utils import inject_pii_inline
+
 
 
 # Add project root to Python path for package imports
