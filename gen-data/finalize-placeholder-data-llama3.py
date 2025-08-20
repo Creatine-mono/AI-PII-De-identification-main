@@ -266,55 +266,79 @@ if __name__ == '__main__':
         return df_pii.iloc[ii % len(df_pii)]
 
     # Insert PII into Full Text
+  # Insert PII into Full Text
     df_final = None
-    for ii in range(len(df)):
+    # tqdm을 사용하여 진행 상황을 표시합니다.
+    from tqdm.auto import tqdm
+
+    print("Injecting PII and generating labels...")
+    for ii in tqdm(range(len(df)), desc="Processing documents"):
         gen = df.iloc[[ii]].reset_index(drop=True)
         pii_row = get_pii_row(ii)
-        gen_explode = gen.copy().explode(['tokens', 'trailing_whitespace']).reset_index(drop=True)
+        
+        # --- 새로운 PII 주입 및 라벨링 로직 시작 ---
 
-        # Incorporate PII into placeholders
-        # (1) faker 주입 + 라벨 생성
-        gen_pii = inject_pii_inline(gen_explode=gen_explode, pii_row=pii_row)
+        # 1. 원본 텍스트에 PII 데이터를 먼저 삽입하여 최종 텍스트를 완성합니다.
+        text_with_pii = gen.iloc[0].full_text
+        
+        # pii_row에 있는 값들 중 실제로 텍스트에 존재하는 플레이스홀더만 찾습니다.
+        # 긴 플레이스홀더가 짧은 플레이스홀더에 포함되는 경우를 막기 위해 길이순으로 정렬합니다.
+        placeholders_in_text = {
+            ph: str(val) for ph, val in pii_row.items() 
+            if ph in text_with_pii and pd.notna(val) and val != ''
+        }
+        sorted_placeholders = sorted(placeholders_in_text.keys(), key=len, reverse=True)
 
+        for ph in sorted_placeholders:
+            fake_val = placeholders_in_text[ph]
+            text_with_pii = text_with_pii.replace(ph, fake_val)
+
+        # 2. 모든 PII가 삽입된 최종 텍스트를 토큰화합니다.
+        final_tokens, final_ws = tokenize_with_spacy(text_with_pii)
         
-        # (2) 길이 가드
-        assert len(gen_pii["tokens"]) == len(gen_pii["trailing_whitespace"]) == len(gen_pii["label"]), \
-            f"Length mismatch at {ii}"
+        # 3. 토큰화된 PII 값 시퀀스를 검색하여 정확한 라벨을 부여합니다.
+        final_labels = ['O'] * len(final_tokens)
         
-        # (3) full_text 재조립
-        text_parts = []
-        for t, ws in zip(gen_pii["tokens"], gen_pii["trailing_whitespace"]):
-            text_parts.append(t)
-            if ws:
-                text_parts.append(" ")
-        text = "".join(text_parts)
+        for ph in sorted_placeholders:
+            fake_val = placeholders_in_text[ph]
+            pii_tokens, _ = tokenize_with_spacy(fake_val)
+            
+            if not pii_tokens: continue # PII 값이 비어있으면 건너뜁니다.
+            
+            # final_tokens 리스트에서 pii_tokens 시퀀스를 찾습니다.
+            for i in range(len(final_tokens) - len(pii_tokens) + 1):
+                # 해당 위치의 토큰들이 pii_tokens와 일치하는지 확인합니다.
+                if final_tokens[i:i + len(pii_tokens)] == pii_tokens:
+                    # 이미 다른 라벨이 할당되지 않았는지 확인하여 중복 라벨링을 방지합니다.
+                    is_unlabeled = all(l == 'O' for l in final_labels[i:i + len(pii_tokens)])
+                    if is_unlabeled:
+                        # B- 라벨을 첫 토큰에 할당합니다.
+                        final_labels[i] = f"B-{_norm_ph(ph)}"
+                        # I- 라벨을 나머지 토큰에 할당합니다.
+                        for j in range(1, len(pii_tokens)):
+                            final_labels[i + j] = f"I-{_norm_ph(ph)}"
         
-        # (4) 집계
-        tmp = (
-            gen_pii.groupby('file_name')
-            .agg({
-                "tokens": lambda x: x.tolist(),
-                "trailing_whitespace": lambda x: x.tolist(),
-                "label": lambda x: x.tolist()
-            })
-            .reset_index()
-        )
+        # --- 로직 종료 ---
+
+        # 처리된 결과를 임시 DataFrame에 저장합니다.
+        tmp = pd.DataFrame({
+            'file_name': [gen.iloc[0].file_name],
+            'full_text': [text_with_pii],
+            'tokens': [final_tokens],
+            'trailing_whitespace': [final_ws],
+            'label': [final_labels]
+        })
         
-        # (5) 새 full_text 부여
-        tmp['full_text'] = text
-        
-        # (6) 안전 결합 (집합 말고 명시적 순서)
-        keep_cols = [c for c in gen.columns if c not in ['tokens','trailing_whitespace','label']]
+        # 기존 DataFrame의 메타데이터와 결합합니다.
+        keep_cols = [c for c in gen.columns if c not in ['tokens', 'trailing_whitespace', 'label', 'full_text']]
         new_gen = pd.merge(gen[keep_cols], tmp, on='file_name', how='left', validate='one_to_one')
         
-        # (7) 누적
+        # 최종 DataFrame에 누적합니다.
         if df_final is None:
             df_final = new_gen
         else:
             df_final = pd.concat([df_final, new_gen], axis=0, ignore_index=True)
-        
-        if ii % 50 == 0:
-            print(f'Completed {ii} of {len(df):,}')
+
 
     # Document ID
     df_final['document'] = [DOC_PREFIX + f'_{i}' for i in range(len(df_final))]
