@@ -18,7 +18,7 @@ def _norm_ph(name: str) -> str:
     except NameError:
         return name
 
-# 기존 inject_pii_inline 함수를 아래 코드로 대체하세요.
+# 기존 inject_pii_inline 함수를 아래 코드로 전체 교체하세요.
 def inject_pii_inline(gen_explode, pii_row):
     """
     pii_row에 있는 실제 값으로 플레이스홀더를 교체하고 정확한 라벨을 생성합니다.
@@ -29,7 +29,8 @@ def inject_pii_inline(gen_explode, pii_row):
 
     # gen_explode는 이미 토큰화된 DataFrame이므로 한 행씩 순회합니다.
     for row in gen_explode.itertuples():
-        word = str(row.text) # 현재 토큰(단어)
+        # ⭐️ 수정된 부분: row.text -> row.tokens
+        word = str(row.tokens) # 현재 토큰(단어)
         
         # 중괄호를 제거하여 순수한 플레이스홀더 이름 추출 (예: {NAME} -> NAME)
         placeholder = word.strip('{}')
@@ -39,8 +40,7 @@ def inject_pii_inline(gen_explode, pii_row):
             # pii_row에서 실제 faker 데이터를 가져옴
             fake_val = str(pii_row[placeholder])
             
-            # faker 데이터 자체도 공백을 포함할 수 있으므로 토큰화 (kiwi 사용 권장)
-            # 여기서는 간단하게 공백 기준으로 분리
+            # faker 데이터 자체도 공백을 포함할 수 있으므로 토큰화
             pii_tokens = fake_val.split()
             
             # 분리된 토큰이 없는 경우(빈 문자열 등)를 대비
@@ -62,12 +62,11 @@ def inject_pii_inline(gen_explode, pii_row):
             final_labels.append("O")
 
     # 결과를 DataFrame으로 재구성하여 반환
-    # 메인 로직의 groupby가 file_name을 사용하므로 이를 포함시켜줍니다.
     return pd.DataFrame({
         "file_name": gen_explode['file_name'].iloc[0],
         "tokens": final_tokens,
         "trailing_whitespace": final_ws,
-        "label": final_labels  # 메인 로직에서 'labels'로 이름이 변경됨
+        "label": final_labels
     })
 
 # Add project root to Python path for package imports
