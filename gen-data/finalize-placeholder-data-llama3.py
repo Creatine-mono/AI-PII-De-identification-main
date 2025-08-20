@@ -18,57 +18,57 @@ def _norm_ph(name: str) -> str:
     except NameError:
         return name
 
-def inject_pii_inline(gen_explode, pii_placeholders, faker):
-    texts, tokens, whitespaces, labels = [], [], [], []
+# 기존 inject_pii_inline 함수를 아래 코드로 대체하세요.
+def inject_pii_inline(gen_explode, pii_row):
+    """
+    pii_row에 있는 실제 값으로 플레이스홀더를 교체하고 정확한 라벨을 생성합니다.
+    """
+    final_tokens = []
+    final_ws = []
+    final_labels = []
 
+    # gen_explode는 이미 토큰화된 DataFrame이므로 한 행씩 순회합니다.
     for row in gen_explode.itertuples():
-        text = row.text
-        label_seq = []
-        token_seq = []
-        ws_seq = []
+        word = str(row.text) # 현재 토큰(단어)
+        
+        # 중괄호를 제거하여 순수한 플레이스홀더 이름 추출 (예: {NAME} -> NAME)
+        placeholder = word.strip('{}')
 
-        for word in text.split():
-            if "CREDIT_CARD_INFO" in word:
-                fake_val = faker.credit_card_number()
-                for i, tok in enumerate(fake_val.split("-")):
-                    token_seq.append(tok)
-                    ws_seq.append(" ")
-                    label_seq.append("B-CREDIT_CARD" if i == 0 else "I-CREDIT_CARD")
-                text = text.replace("CREDIT_CARD_INFO", fake_val, 1)
+        # 현재 토큰이 pii_row에 있는 플레이스홀더인지 확인
+        if placeholder in pii_row.index and pd.notna(pii_row[placeholder]):
+            # pii_row에서 실제 faker 데이터를 가져옴
+            fake_val = str(pii_row[placeholder])
+            
+            # faker 데이터 자체도 공백을 포함할 수 있으므로 토큰화 (kiwi 사용 권장)
+            # 여기서는 간단하게 공백 기준으로 분리
+            pii_tokens = fake_val.split()
+            
+            # 분리된 토큰이 없는 경우(빈 문자열 등)를 대비
+            if not pii_tokens:
+                continue
 
-            elif "STREET_ADDRESS" in word:
-                fake_val = faker.address().split("\n")[0]
-                for i, tok in enumerate(fake_val.split()):
-                    token_seq.append(tok)
-                    ws_seq.append(" ")
-                    label_seq.append("B-ADDRESS" if i == 0 else "I-ADDRESS")
-                text = text.replace("STREET_ADDRESS", fake_val, 1)
+            for i, tok in enumerate(pii_tokens):
+                final_tokens.append(tok)
+                # 마지막 토큰이 아니라면 뒤에 공백이 있다고 가정
+                final_ws.append(True if i < len(pii_tokens) - 1 else row.trailing_whitespace)
+                
+                # B- (Begin), I- (Inside) 라벨 동적 생성
+                label = f"B-{placeholder}" if i == 0 else f"I-{placeholder}"
+                final_labels.append(label)
+        else:
+            # PII 플레이스홀더가 아닌 일반 단어 처리
+            final_tokens.append(word)
+            final_ws.append(row.trailing_whitespace)
+            final_labels.append("O")
 
-            elif "BANKING_NUMBER" in word:
-                fake_val = faker.bban()
-                for i, tok in enumerate(fake_val.split()):
-                    token_seq.append(tok)
-                    ws_seq.append(" ")
-                    label_seq.append("B-BANK" if i == 0 else "I-BANK")
-                text = text.replace("BANKING_NUMBER", fake_val, 1)
-
-            else:
-                token_seq.append(word)
-                ws_seq.append(" ")
-                label_seq.append("O")
-
-        texts.append(text)
-        tokens.append(token_seq)
-        whitespaces.append(ws_seq)
-        labels.append(label_seq)
-
+    # 결과를 DataFrame으로 재구성하여 반환
+    # 메인 로직의 groupby가 file_name을 사용하므로 이를 포함시켜줍니다.
     return pd.DataFrame({
-        "full_text": texts,
-        "tokens": tokens,
-        "trailing_whitespace": whitespaces,
-        "labels": labels
+        "file_name": gen_explode['file_name'].iloc[0],
+        "tokens": final_tokens,
+        "trailing_whitespace": final_ws,
+        "label": final_labels  # 메인 로직에서 'labels'로 이름이 변경됨
     })
-
 
 # Add project root to Python path for package imports
 project_root = Path(__file__).parent.parent
@@ -275,7 +275,7 @@ if __name__ == '__main__':
 
         # Incorporate PII into placeholders
         # (1) faker 주입 + 라벨 생성
-        gen_pii = inject_pii_inline(gen_explode=gen_explode, pii_row=pii_row, pii_placeholders=pii_placeholders)
+        gen_pii = inject_pii_inline(gen_explode=gen_explode, pii_row=pii_row)
 
         
         # (2) 길이 가드
