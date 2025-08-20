@@ -213,36 +213,45 @@ if __name__ == '__main__':
         gen_explode = gen.copy().explode(['tokens', 'trailing_whitespace']).reset_index(drop=True)
 
         # Incorporate PII into placeholders
-        gen_pii = inject_pii(row=gen_explode, pii=pii, pii_placeholders=pii_placeholders)
-
-
-        # Create full text with pii filled-in
-        text = []
+        # (1) faker 주입 + 라벨 생성
+        gen_pii = inject_pii_inline(gen_explode=gen, pii_row=pii_row, pii_placeholders=pii_placeholders)
+        
+        # (2) 길이 가드
+        assert len(gen_pii["tokens"]) == len(gen_pii["trailing_whitespace"]) == len(gen_pii["label"]), \
+            f"Length mismatch at {ii}"
+        
+        # (3) full_text 재조립
+        text_parts = []
         for t, ws in zip(gen_pii["tokens"], gen_pii["trailing_whitespace"]):
-            text.append(t)
+            text_parts.append(t)
             if ws:
-                text.append(" ")
-        text = ''.join(text)
-
-        # Aggregate results
-        tmp = (gen_pii.groupby('file_name')
-               .agg({"tokens": lambda x: x.tolist(),
-                     "trailing_whitespace": lambda x: x.tolist(),
-                     "label": lambda x: x.tolist()})
-               .reset_index())
-
-        # Assign new full text
+                text_parts.append(" ")
+        text = "".join(text_parts)
+        
+        # (4) 집계
+        tmp = (
+            gen_pii.groupby('file_name')
+            .agg({
+                "tokens": lambda x: x.tolist(),
+                "trailing_whitespace": lambda x: x.tolist(),
+                "label": lambda x: x.tolist()
+            })
+            .reset_index()
+        )
+        
+        # (5) 새 full_text 부여
         tmp['full_text'] = text
-
-        # Combine results
-        cols = list(set(gen.columns) - set(tmp.columns))
-        new_gen = pd.concat([gen[cols], tmp], axis=1)
-
-        # Concatenate into final dataframe
+        
+        # (6) 안전 결합 (집합 말고 명시적 순서)
+        keep_cols = [c for c in gen.columns if c not in ['tokens','trailing_whitespace','label']]
+        new_gen = pd.merge(gen[keep_cols], tmp, on='file_name', how='left', validate='one_to_one')
+        
+        # (7) 누적
         if df_final is None:
             df_final = new_gen
         else:
-            df_final = pd.concat([df_final, new_gen], axis=0).reset_index(drop=True)
+            df_final = pd.concat([df_final, new_gen], axis=0, ignore_index=True)
+        
         if ii % 50 == 0:
             print(f'Completed {ii} of {len(df):,}')
 
