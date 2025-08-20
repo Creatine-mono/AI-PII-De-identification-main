@@ -298,20 +298,34 @@ if __name__ == '__main__':
 
     # Document ID
     df_final['document'] = [DOC_PREFIX + f'_{i}' for i in range(len(df_final))]
-
-    # Reduce to only required columns
-    df_final.rename(columns={'label': 'labels'}, inplace=True)
-
+    
+    # merge 이후 full_text 접미사 정리(있을 때만)
+    if 'full_text_y' in df_final.columns:
+        df_final['full_text'] = df_final['full_text_y']
+        df_final.drop(columns=['full_text_y'], inplace=True)
+    if 'full_text_x' in df_final.columns:
+        df_final.drop(columns=['full_text_x'], inplace=True)
+    
+    # label → labels로 통일(이미 labels가 있으면 건너뜀)
+    if 'label' in df_final.columns and 'labels' not in df_final.columns:
+        df_final.rename(columns={'label': 'labels'}, inplace=True)
+    
+    # (선택) 안전 가드
+    assert 'full_text' in df_final.columns, f"missing full_text: {list(df_final.columns)}"
+    assert 'labels' in df_final.columns, f"missing labels: {list(df_final.columns)}"
+    
     # View results
     if DEBUG:
         verify_df(df=df_final.copy())
     print(f'df_final.shape: {df_final.shape}')
+    
+    # 필요한 컬럼만 선택
     df_final = df_final[['document', 'full_text', 'tokens', 'trailing_whitespace', 'labels']]
     print(f'df_final.shape: {df_final.shape}')
-
+    
     # Save to disk (레코드 지향 + 줄단위 + 한글 그대로)
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
-    df_final[['document','full_text','tokens','trailing_whitespace','labels']].to_json(
+    df_final.to_json(
         save_path, orient='records', lines=True, force_ascii=False
     )
     import json
